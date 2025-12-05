@@ -15,29 +15,65 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(res => res.text())
         .then(data => {
             allQuestions = parseCSV(data);
-            setTimeout(() => switchMode('home'), 600); // Small delay for smooth entry
+            // Small delay for smooth entry animation
+            setTimeout(() => switchMode('home'), 600); 
         })
         .catch(err => {
+            console.error(err);
             document.getElementById('app-container').innerHTML = 
-                `<div class="text-center p-10"><div class="text-rose-500 font-bold text-xl mb-2">Error Loading Data</div><p class="text-slate-500 text-sm">Please ensure 'questions.csv' is in the same folder.</p></div>`;
+                `<div class="flex flex-col items-center justify-center h-[60vh] text-center p-10">
+                    <div class="text-rose-500 font-bold text-2xl mb-2">Database Error</div>
+                    <p class="text-slate-500 text-sm">Could not load 'questions.csv'.<br>Please check the file name and location.</p>
+                </div>`;
         });
 });
 
-// --- Enhanced CSV Parser ---
+// --- Robust CSV Parser (Fixes text cut-off issue) ---
 function parseCSV(csvText) {
     const lines = csvText.split(/\r?\n/);
     const result = [];
+    
     for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        // Regex to handle commas inside quotes
-        const matches = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-        if (matches && matches.length >= 6) {
-            const clean = matches.map(m => m.replace(/^"|"$/g, '').trim());
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const row = [];
+        let currentField = '';
+        let insideQuotes = false;
+
+        // Loop through every character to handle commas and quotes correctly
+        for (let j = 0; j < line.length; j++) {
+            const char = line[j];
+
+            if (char === '"') {
+                insideQuotes = !insideQuotes; // Toggle quote state
+            } else if (char === ',' && !insideQuotes) {
+                // If we hit a comma and NOT inside quotes, it's a new field
+                row.push(currentField.trim());
+                currentField = '';
+            } else {
+                currentField += char;
+            }
+        }
+        // Push the last field
+        row.push(currentField.trim());
+
+        // Ensure we have enough columns (ID, Question, A, B, C, D, Answer, Expl)
+        if (row.length >= 7) {
+            // Clean up quotes from the text edges
+            const clean = row.map(text => text.replace(/^"|"$/g, '').trim());
+
             result.push({
-                id: clean[0], question: clean[1],
-                options: { A: clean[2], B: clean[3], C: clean[4], D: clean[5] },
+                id: clean[0], 
+                question: clean[1],
+                options: { 
+                    A: clean[2], 
+                    B: clean[3], 
+                    C: clean[4], 
+                    D: clean[5] 
+                },
                 correct: clean[6].replace(/Option\s+/i, '').trim().toUpperCase(),
-                explanation: clean[7] || "No explanation available."
+                explanation: clean[7] || "No explanation provided."
             });
         }
     }
@@ -53,7 +89,7 @@ function switchMode(mode) {
     const headerActs = document.getElementById('header-actions');
     const examFooter = document.getElementById('exam-footer');
 
-    // Reset UI
+    // Reset UI State
     app.innerHTML = '';
     headerActs.innerHTML = '';
     examFooter.classList.add('hidden');
@@ -69,7 +105,8 @@ function renderHome() {
     const bestScore = localStorage.getItem(STORAGE_SCORE) || '0';
     
     document.getElementById('app-container').innerHTML = `
-        <div class="animate-slide-up max-w-2xl mx-auto pt-4">
+        <div class="animate-slide-up max-w-2xl mx-auto pt-4 pb-10">
+            <!-- Hero Card -->
             <div class="bg-gradient-to-br from-indigo-600 to-violet-600 rounded-3xl p-8 text-white shadow-glow mb-8 relative overflow-hidden">
                 <div class="absolute top-0 right-0 p-4 opacity-10">
                     <i class="ph-fill ph-trophy text-[150px] rotate-12"></i>
@@ -92,6 +129,7 @@ function renderHome() {
                 </div>
             </div>
 
+            <!-- Action Grid -->
             <div class="grid gap-4">
                 <div onclick="switchMode('practice')" class="group bg-white p-5 rounded-2xl border border-slate-100 shadow-soft cursor-pointer hover:border-indigo-100 transition-all active:scale-[0.98]">
                     <div class="flex items-center gap-5">
@@ -257,7 +295,7 @@ function finishExam() {
 
     // --- SCORING CALCULATION ---
     const penalty = wrong * 0.25;
-    const finalScore = Math.max(0, correct - penalty); // Use 0 floor or keep negative if preferred
+    const finalScore = Math.max(0, correct - penalty); 
     const percentage = (finalScore / allQuestions.length) * 100;
 
     // Save Score
@@ -267,6 +305,7 @@ function finishExam() {
     document.getElementById('app-container').innerHTML = `
         <div class="animate-slide-up max-w-xl mx-auto pt-6">
             <div class="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden mb-6">
+                <!-- Result Header -->
                 <div class="bg-slate-900 p-8 text-center text-white relative overflow-hidden">
                     <div class="absolute inset-0 bg-gradient-to-t from-indigo-900/50 to-transparent"></div>
                     <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 relative z-10">Final Score</p>
@@ -276,6 +315,7 @@ function finishExam() {
                     </div>
                 </div>
 
+                <!-- Detailed Breakdown -->
                 <div class="p-6">
                     <h3 class="font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Score Breakdown</h3>
                     
@@ -310,7 +350,7 @@ function finishExam() {
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-4 pb-10">
                 <button onclick="switchMode('home')" class="py-3.5 rounded-xl border border-slate-200 font-bold text-slate-600 hover:bg-slate-50 transition">Home</button>
                 <button onclick="reviewAnswers()" class="py-3.5 rounded-xl bg-indigo-600 font-bold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition">Review Mistakes</button>
             </div>
@@ -322,7 +362,7 @@ function finishExam() {
 function reviewAnswers() {
     const content = allQuestions.map((q, i) => {
         const ans = userAnswers[i];
-        if (ans === q.correct) return ''; // Skip correct ones to focus on mistakes
+        if (ans === q.correct) return ''; // Skip correct ones
         
         const isSkipped = !ans;
         const statusColor = isSkipped ? 'slate' : 'rose';
@@ -354,15 +394,15 @@ function reviewAnswers() {
     }).join('');
 
     document.getElementById('app-container').innerHTML = `
-        <div class="max-w-2xl mx-auto pt-4 animate-slide-up">
+        <div class="max-w-2xl mx-auto pt-4 pb-10 animate-slide-up">
             <h2 class="text-xl font-bold text-slate-800 mb-6 px-1">Reviewing Mistakes</h2>
             ${content || '<div class="text-center p-10 text-slate-500">Perfect Score! Nothing to review. 🌟</div>'}
-            <button onclick="switchMode('home')" class="w-full py-4 bg-slate-900 text-white font-bold rounded-xl mt-4 mb-10">Back to Dashboard</button>
+            <button onclick="switchMode('home')" class="w-full py-4 bg-slate-900 text-white font-bold rounded-xl mt-4">Back to Dashboard</button>
         </div>
     `;
 }
 
-// --- Practice Mode (Simplified) ---
+// --- Practice Mode ---
 function startPractice() {
     currentIdx = parseInt(localStorage.getItem(STORAGE_PRACTICE_IDX) || '0');
     renderPractice();
@@ -442,3 +482,4 @@ function movePrac(d) {
         renderPractice();
     }
 }
+
