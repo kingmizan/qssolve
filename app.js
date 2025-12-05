@@ -11,7 +11,8 @@ const STORAGE_PRACTICE_IDX = 'exambuzz_prac_idx';
 
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
-    fetch('questions.csv')
+    // Added 'v=3' to force browser to fetch the new CSV file and ignore cache
+    fetch('questions.csv?v=3')
         .then(res => res.text())
         .then(data => {
             allQuestions = parseCSV(data);
@@ -28,11 +29,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 });
 
-// --- Robust CSV Parser (Fixes text cut-off issue) ---
+// --- Robust CSV Parser (The Fix for Incomplete Text) ---
 function parseCSV(csvText) {
     const lines = csvText.split(/\r?\n/);
     const result = [];
     
+    // Start from 1 to skip the Header row
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
@@ -41,26 +43,26 @@ function parseCSV(csvText) {
         let currentField = '';
         let insideQuotes = false;
 
-        // Loop through every character to handle commas and quotes correctly
+        // Loop through every character to handle quotes and commas correctly
         for (let j = 0; j < line.length; j++) {
             const char = line[j];
 
             if (char === '"') {
                 insideQuotes = !insideQuotes; // Toggle quote state
             } else if (char === ',' && !insideQuotes) {
-                // If we hit a comma and NOT inside quotes, it's a new field
+                // If we hit a comma and we are NOT inside quotes, it's a new field
                 row.push(currentField.trim());
                 currentField = '';
             } else {
                 currentField += char;
             }
         }
-        // Push the last field
+        // Push the last field after loop ends
         row.push(currentField.trim());
 
-        // Ensure we have enough columns (ID, Question, A, B, C, D, Answer, Expl)
+        // Ensure we have enough columns to map
         if (row.length >= 7) {
-            // Clean up quotes from the text edges
+            // Clean up surrounding quotes (e.g., "Option A" -> Option A)
             const clean = row.map(text => text.replace(/^"|"$/g, '').trim());
 
             result.push({
@@ -72,6 +74,7 @@ function parseCSV(csvText) {
                     C: clean[4], 
                     D: clean[5] 
                 },
+                // Regex to remove "Option " prefix if present
                 correct: clean[6].replace(/Option\s+/i, '').trim().toUpperCase(),
                 explanation: clean[7] || "No explanation provided."
             });
@@ -362,7 +365,7 @@ function finishExam() {
 function reviewAnswers() {
     const content = allQuestions.map((q, i) => {
         const ans = userAnswers[i];
-        if (ans === q.correct) return ''; // Skip correct ones
+        if (ans === q.correct) return ''; // Skip correct ones to focus on mistakes
         
         const isSkipped = !ans;
         const statusColor = isSkipped ? 'slate' : 'rose';
@@ -397,7 +400,7 @@ function reviewAnswers() {
         <div class="max-w-2xl mx-auto pt-4 pb-10 animate-slide-up">
             <h2 class="text-xl font-bold text-slate-800 mb-6 px-1">Reviewing Mistakes</h2>
             ${content || '<div class="text-center p-10 text-slate-500">Perfect Score! Nothing to review. 🌟</div>'}
-            <button onclick="switchMode('home')" class="w-full py-4 bg-slate-900 text-white font-bold rounded-xl mt-4">Back to Dashboard</button>
+            <button onclick="switchMode('home')" class="w-full py-4 bg-slate-900 text-white font-bold rounded-xl mt-4 mb-10">Back to Dashboard</button>
         </div>
     `;
 }
@@ -482,4 +485,5 @@ function movePrac(d) {
         renderPractice();
     }
 }
+
 
