@@ -4,47 +4,34 @@ let currentIdx = 0;
 let userAnswers = {}; 
 let examTimer;
 let timeLeft = 0;
-let reviewFilter = 'all'; // 'all', 'wrong', 'skipped'
 
-// Local Storage Keys
 const STORAGE_KEY_SCORE = 'exambuzz_best_score';
 const STORAGE_KEY_PRACTICE = 'exambuzz_last_practice_idx';
 
-// --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     fetch('questions.csv')
-        .then(response => response.text())
+        .then(res => res.text())
         .then(data => {
             allQuestions = parseCSV(data);
-            // Simulate slight delay for loading animation feeling
-            setTimeout(() => renderHome(), 600);
+            setTimeout(() => switchMode('home'), 500);
         })
         .catch(err => {
+            console.error(err);
             document.getElementById('app-container').innerHTML = 
-                `<div class="flex flex-col items-center justify-center h-full text-red-500">
-                    <i class="ph-fill ph-warning-circle text-4xl mb-2"></i>
-                    <p>Failed to load database. Ensure 'questions.csv' exists.</p>
-                </div>`;
+                `<div class="text-center text-red-500 mt-20">Database Error. Check console.</div>`;
         });
 });
 
-// --- Enhanced CSV Parser ---
 function parseCSV(csvText) {
     const lines = csvText.split(/\r?\n/);
     const result = [];
-    
     for (let i = 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
-        
-        // Advanced regex to handle commas inside quotes
         const matches = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
-        
         if (matches && matches.length >= 6) {
             const clean = matches.map(m => m.replace(/^"|"$/g, '').trim());
-            
             result.push({
-                id: clean[0],
-                question: clean[1],
+                id: clean[0], question: clean[1],
                 options: { A: clean[2], B: clean[3], C: clean[4], D: clean[5] },
                 correct: clean[6].replace(/Option\s+/i, '').trim().toUpperCase(),
                 explanation: clean[7] || "No explanation provided."
@@ -54,226 +41,98 @@ function parseCSV(csvText) {
     return result;
 }
 
-// --- Navigation & Views ---
-
+// --- Navigation ---
 function switchMode(mode) {
     clearInterval(examTimer);
     currentMode = mode;
     const app = document.getElementById('app-container');
-    const nav = document.getElementById('nav-actions');
-    
-    // Clear Nav
-    nav.innerHTML = '';
-    
-    // Reset Scroll
+    const headerActions = document.getElementById('header-actions');
+    const footer = document.getElementById('main-footer');
+    const mobileNav = document.getElementById('mobile-exam-nav');
+
+    // Reset Views
+    headerActions.innerHTML = '';
+    app.innerHTML = '';
     app.scrollTop = 0;
+    
+    // Visibility Logic
+    if (mode === 'exam') {
+        footer.classList.add('hidden');
+        mobileNav.classList.remove('hidden'); // Show bottom bar on mobile
+    } else {
+        footer.classList.remove('hidden');
+        mobileNav.classList.add('hidden');
+    }
 
     if (mode === 'home') renderHome();
     if (mode === 'practice') startPractice();
     if (mode === 'exam') startExam();
 }
 
+// --- Home ---
 function renderHome() {
     const bestScore = localStorage.getItem(STORAGE_KEY_SCORE) || '0';
-    const lastPractice = parseInt(localStorage.getItem(STORAGE_KEY_PRACTICE) || '0');
-    
-    const html = `
-        <div class="max-w-4xl mx-auto fade-enter pt-6">
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-8 text-white shadow-xl mb-10 relative overflow-hidden">
-                <div class="absolute top-0 right-0 p-8 opacity-10">
-                    <i class="ph-fill ph-books text-9xl"></i>
-                </div>
-                <div class="relative z-10">
-                    <h1 class="text-3xl md:text-4xl font-bold mb-2">Senior Officer Recruitment</h1>
-                    <p class="text-indigo-100 text-lg mb-6">Master your preparation with our comprehensive question bank.</p>
-                    <div class="flex items-center gap-6 text-sm font-medium">
-                        <div class="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                            <i class="ph-fill ph-trophy text-yellow-300"></i>
-                            <span>Best Score: ${bestScore}%</span>
-                        </div>
-                        <div class="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                            <i class="ph-fill ph-stack"></i>
-                            <span>${allQuestions.length} Questions</span>
-                        </div>
+    document.getElementById('app-container').innerHTML = `
+        <div class="fade-in max-w-4xl mx-auto pt-6">
+            <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-3xl p-8 text-white shadow-2xl mb-8 relative overflow-hidden">
+                <i class="ph-fill ph-medal absolute -bottom-4 -right-4 text-[10rem] opacity-10 rotate-12"></i>
+                <h2 class="text-3xl font-bold mb-2 relative z-10">Welcome Back!</h2>
+                <p class="text-indigo-100 mb-6 relative z-10">Ready to crush your Senior Officer exam?</p>
+                <div class="flex gap-4 relative z-10">
+                    <div class="bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
+                        <div class="text-xs text-indigo-200 uppercase font-bold">Best Score</div>
+                        <div class="text-xl font-bold">${bestScore}%</div>
+                    </div>
+                    <div class="bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10">
+                        <div class="text-xs text-indigo-200 uppercase font-bold">Total Qs</div>
+                        <div class="text-xl font-bold">${allQuestions.length}</div>
                     </div>
                 </div>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-6">
-                <div onclick="switchMode('practice')" class="group bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden">
-                    <div class="absolute top-0 right-0 bg-emerald-50 w-24 h-24 rounded-bl-full -mr-4 -mt-4 transition-all group-hover:scale-110"></div>
-                    <div class="relative z-10">
-                        <div class="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                            <i class="ph-duotone ph-student"></i>
-                        </div>
-                        <h2 class="text-2xl font-bold text-slate-800 mb-2">Practice Mode</h2>
-                        <p class="text-slate-500 mb-6">Learn at your own pace with instant feedback and detailed explanations.</p>
-                        <div class="flex items-center text-sm font-semibold text-emerald-600">
-                            Continue from Q${lastPractice + 1} <i class="ph-bold ph-arrow-right ml-2"></i>
-                        </div>
+            <div class="grid md:grid-cols-2 gap-6 pb-8">
+                <button onclick="switchMode('practice')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-primary/50 hover:shadow-lg transition text-left group">
+                    <div class="bg-emerald-100 w-12 h-12 rounded-full flex items-center justify-center text-emerald-600 mb-4 group-hover:scale-110 transition">
+                        <i class="ph-bold ph-book-open text-2xl"></i>
                     </div>
-                </div>
+                    <h3 class="text-xl font-bold text-slate-900">Practice Mode</h3>
+                    <p class="text-slate-500 mt-1">Learn with instant explanations. No time limit.</p>
+                </button>
 
-                <div onclick="switchMode('exam')" class="group bg-white p-8 rounded-2xl shadow-sm border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer">
-                    <div class="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center text-3xl mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-                        <i class="ph-duotone ph-timer"></i>
+                <button onclick="switchMode('exam')" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-primary/50 hover:shadow-lg transition text-left group">
+                    <div class="bg-rose-100 w-12 h-12 rounded-full flex items-center justify-center text-rose-600 mb-4 group-hover:scale-110 transition">
+                        <i class="ph-bold ph-timer text-2xl"></i>
                     </div>
-                    <h2 class="text-2xl font-bold text-slate-800 mb-2">Exam Mode</h2>
-                    <p class="text-slate-500 mb-6">Simulate real exam conditions. 60 Minutes. Negative marking enabled.</p>
-                    <div class="flex items-center text-sm font-semibold text-indigo-600">
-                        Start Assessment <i class="ph-bold ph-arrow-right ml-2"></i>
-                    </div>
-                </div>
+                    <h3 class="text-xl font-bold text-slate-900">Exam Mode</h3>
+                    <p class="text-slate-500 mt-1">60 Mins. Negative marking. Real simulation.</p>
+                </button>
             </div>
         </div>
     `;
-    document.getElementById('app-container').innerHTML = html;
-}
-
-// --- Practice Mode ---
-
-function startPractice() {
-    // Load last position
-    currentIdx = parseInt(localStorage.getItem(STORAGE_KEY_PRACTICE) || '0');
-    if(currentIdx >= allQuestions.length) currentIdx = 0;
-    
-    renderPracticeUI();
-}
-
-function renderPracticeUI() {
-    const q = allQuestions[currentIdx];
-    
-    // Save progress
-    localStorage.setItem(STORAGE_KEY_PRACTICE, currentIdx);
-
-    const html = `
-        <div class="max-w-3xl mx-auto fade-enter pb-20">
-            <div class="flex justify-between items-end mb-4 px-1">
-                <div>
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Practice Question</span>
-                    <h2 class="text-3xl font-bold text-slate-800">${currentIdx + 1} <span class="text-slate-300 text-xl">/ ${allQuestions.length}</span></h2>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="navPractice(-1)" class="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed" ${currentIdx === 0 ? 'disabled' : ''}>
-                        <i class="ph-bold ph-caret-left"></i>
-                    </button>
-                    <button onclick="navPractice(1)" class="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 disabled:opacity-50" ${currentIdx === allQuestions.length - 1 ? 'disabled' : ''}>
-                        <i class="ph-bold ph-caret-right"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="p-8 border-b border-slate-100 bg-slate-50/50">
-                    <p class="text-xl font-medium text-slate-800 leading-relaxed font-sans">${q.question}</p>
-                </div>
-
-                <div class="p-6 grid gap-3" id="practice-options">
-                    ${Object.entries(q.options).map(([key, val]) => `
-                        <button onclick="checkPracticeAnswer('${key}')" id="opt-${key}" 
-                            class="group w-full text-left p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all flex items-start gap-4">
-                            <span class="flex-shrink-0 w-8 h-8 rounded-lg bg-slate-100 text-slate-500 font-bold flex items-center justify-center group-hover:bg-indigo-200 group-hover:text-indigo-700 transition-colors">${key}</span>
-                            <span class="text-lg text-slate-600 group-hover:text-indigo-900 pt-0.5">${val}</span>
-                        </button>
-                    `).join('')}
-                </div>
-
-                <div id="feedback-area" class="hidden bg-slate-50 border-t border-slate-100 p-6 animate-enter">
-                    <div id="feedback-status" class="flex items-center gap-3 font-bold text-lg mb-3"></div>
-                    <div class="text-slate-600 bg-white p-4 rounded-lg border border-slate-200 shadow-sm text-sm leading-relaxed">
-                        <span class="text-slate-400 font-bold uppercase text-xs block mb-1">Explanation</span>
-                        ${q.explanation}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('app-container').innerHTML = html;
-}
-
-function checkPracticeAnswer(selectedKey) {
-    const q = allQuestions[currentIdx];
-    const isCorrect = selectedKey === q.correct;
-    
-    // Disable inputs
-    const btns = document.querySelectorAll('#practice-options button');
-    btns.forEach(b => b.disabled = true);
-    
-    // UI Updates
-    const selectedBtn = document.getElementById(`opt-${selectedKey}`);
-    const correctBtn = document.getElementById(`opt-${q.correct}`);
-    
-    if (isCorrect) {
-        selectedBtn.className = "w-full text-left p-4 rounded-xl border-2 border-green-500 bg-green-50 flex items-start gap-4";
-        selectedBtn.querySelector('span').className = "flex-shrink-0 w-8 h-8 rounded-lg bg-green-500 text-white font-bold flex items-center justify-center";
-        
-        showFeedback(true);
-    } else {
-        selectedBtn.className = "w-full text-left p-4 rounded-xl border-2 border-red-500 bg-red-50 flex items-start gap-4 opacity-75";
-        selectedBtn.querySelector('span').className = "flex-shrink-0 w-8 h-8 rounded-lg bg-red-200 text-red-700 font-bold flex items-center justify-center";
-        
-        // Highlight correct one
-        correctBtn.className = "w-full text-left p-4 rounded-xl border-2 border-green-500 bg-green-50 flex items-start gap-4 shadow-lg scale-[1.02]";
-        correctBtn.querySelector('span').className = "flex-shrink-0 w-8 h-8 rounded-lg bg-green-500 text-white font-bold flex items-center justify-center";
-        
-        showFeedback(false);
-    }
-}
-
-function showFeedback(success) {
-    const area = document.getElementById('feedback-area');
-    const status = document.getElementById('feedback-status');
-    
-    area.classList.remove('hidden');
-    
-    if (success) {
-        status.innerHTML = `<i class="ph-fill ph-check-circle text-green-500 text-2xl"></i> <span class="text-green-700">Correct Answer!</span>`;
-    } else {
-        status.innerHTML = `<i class="ph-fill ph-x-circle text-red-500 text-2xl"></i> <span class="text-red-700">Incorrect</span>`;
-    }
-    
-    // Auto scroll to explanation
-    area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-function navPractice(dir) {
-    const newIdx = currentIdx + dir;
-    if (newIdx >= 0 && newIdx < allQuestions.length) {
-        currentIdx = newIdx;
-        renderPracticeUI();
-    }
 }
 
 // --- Exam Mode ---
-
 function startExam() {
     currentIdx = 0;
     userAnswers = {};
-    timeLeft = 3600; // 60 mins
+    timeLeft = 3600;
     
-    // Set Header Info
-    const nav = document.getElementById('nav-actions');
-    nav.innerHTML = `
-        <div class="flex items-center gap-4 bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">
-            <div class="flex items-center gap-2 text-slate-600">
-                <i class="ph-bold ph-clock"></i>
-                <span id="exam-timer" class="font-mono font-bold text-lg">60:00</span>
+    // Header Timer
+    document.getElementById('header-actions').innerHTML = `
+        <div class="flex items-center gap-3">
+            <div class="bg-slate-100 px-3 py-1.5 rounded-lg font-mono font-bold text-primary flex items-center gap-2">
+                <i class="ph-bold ph-clock"></i> <span id="timer">60:00</span>
             </div>
+            <button onclick="finishExam()" class="hidden sm:block bg-red-500 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-red-600 transition">Submit</button>
+            <button onclick="finishExam()" class="sm:hidden bg-red-500 text-white p-2 rounded-lg"><i class="ph-bold ph-paper-plane-right"></i></button>
         </div>
-        <button onclick="finishExam()" class="bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded-lg font-medium text-sm transition-colors shadow-sm">
-            Submit Exam
-        </button>
     `;
-    
+
     examTimer = setInterval(() => {
         timeLeft--;
         const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
         const s = (timeLeft % 60).toString().padStart(2, '0');
-        
-        const timerEl = document.getElementById('exam-timer');
-        if(timerEl) timerEl.innerText = `${m}:${s}`;
-        
+        if(document.getElementById('timer')) document.getElementById('timer').innerText = `${m}:${s}`;
         if (timeLeft <= 0) finishExam();
     }, 1000);
 
@@ -282,231 +141,184 @@ function startExam() {
 
 function renderExamLayout() {
     const html = `
-        <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-100px)]">
-            <div class="flex-grow overflow-y-auto pr-2" id="exam-question-area">
+        <div class="flex h-full gap-6">
+            <div class="flex-grow overflow-y-auto pb-24 lg:pb-0 no-scrollbar" id="exam-card-area">
                 </div>
 
-            <div class="w-full lg:w-72 flex-shrink-0 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full overflow-hidden">
-                <div class="p-4 border-b border-slate-100 bg-slate-50">
-                    <h3 class="font-bold text-slate-700 text-sm uppercase">Question Palette</h3>
-                    <div class="flex gap-4 mt-2 text-xs">
-                        <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-indigo-600"></div> Answered</div>
-                        <div class="flex items-center gap-1"><div class="w-3 h-3 rounded bg-slate-200"></div> Pending</div>
-                    </div>
-                </div>
-                <div class="p-4 overflow-y-auto grid grid-cols-5 gap-2 content-start scroller" id="exam-palette">
-                    </div>
+            <div class="hidden lg:block w-72 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[calc(100vh-140px)] sticky top-0">
+                <div class="p-4 border-b border-slate-100 font-bold text-slate-700 bg-slate-50 rounded-t-2xl">Question Palette</div>
+                <div class="flex-grow overflow-y-auto p-4 grid grid-cols-5 gap-2 content-start" id="desktop-palette"></div>
             </div>
         </div>
     `;
     document.getElementById('app-container').innerHTML = html;
-    updateExamQuestion();
-    updatePalette();
+    updateExamUI();
 }
 
-function updateExamQuestion() {
+function updateExamUI() {
     const q = allQuestions[currentIdx];
-    const selected = userAnswers[currentIdx];
+    const sel = userAnswers[currentIdx];
     
-    const html = `
-        <div class="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 fade-enter">
-            <div class="flex justify-between mb-6">
-                <span class="text-slate-400 font-bold text-sm">Question ${currentIdx + 1}</span>
-                <span class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-500">ID: ${q.id}</span>
+    // Render Question Card
+    document.getElementById('exam-card-area').innerHTML = `
+        <div class="bg-white p-6 md:p-10 rounded-2xl shadow-sm border border-slate-200 fade-in">
+            <div class="flex justify-between items-center mb-6">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Question ${currentIdx + 1} of ${allQuestions.length}</span>
+                <span class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-mono">ID: ${q.id}</span>
             </div>
-            
-            <h3 class="text-xl md:text-2xl font-medium text-slate-900 mb-8">${q.question}</h3>
-            
-            <div class="grid gap-3">
-                ${Object.entries(q.options).map(([key, val]) => `
-                    <button onclick="selectExamAnswer('${key}')" 
-                        class="group w-full text-left p-4 rounded-xl border transition-all flex items-center gap-4 ${selected === key ? 'border-indigo-600 bg-indigo-50 shadow-inner' : 'border-slate-200 hover:bg-slate-50'}">
-                        <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center ${selected === key ? 'border-indigo-600' : 'border-slate-300 group-hover:border-indigo-400'}">
-                            ${selected === key ? '<div class="w-3 h-3 rounded-full bg-indigo-600"></div>' : ''}
-                        </div>
-                        <span class="text-lg ${selected === key ? 'text-indigo-900 font-medium' : 'text-slate-600'}">${val}</span>
+            <h3 class="text-xl md:text-2xl font-medium text-slate-900 mb-8 leading-relaxed">${q.question}</h3>
+            <div class="space-y-3">
+                ${Object.entries(q.options).map(([k, v]) => `
+                    <button onclick="selectExamAns('${k}')" class="w-full text-left p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${sel === k ? 'border-primary bg-indigo-50/50' : 'border-slate-100 hover:border-slate-300'}">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition ${sel === k ? 'bg-primary text-white' : 'bg-slate-200 text-slate-500'}">${k}</div>
+                        <span class="${sel === k ? 'text-primary font-semibold' : 'text-slate-600'}">${v}</span>
                     </button>
                 `).join('')}
             </div>
-
-            <div class="flex justify-between mt-10 border-t border-slate-100 pt-6">
-                <button onclick="navExam(-1)" class="flex items-center gap-2 text-slate-500 hover:text-slate-800 disabled:opacity-30" ${currentIdx === 0 ? 'disabled' : ''}>
-                    <i class="ph-bold ph-arrow-left"></i> Previous
-                </button>
-                <button onclick="navExam(1)" class="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-lg font-medium shadow-md shadow-indigo-200 transition-all">
-                    ${currentIdx === allQuestions.length - 1 ? 'Review' : 'Next Question'}
-                </button>
+            <div class="hidden lg:flex justify-between mt-10 pt-6 border-t border-slate-100">
+                <button onclick="navExam(-1)" class="text-slate-500 font-bold hover:text-slate-800" ${currentIdx===0?'disabled':''}>Previous</button>
+                <button onclick="navExam(1)" class="bg-primary text-white px-8 py-2 rounded-lg font-bold shadow-lg shadow-primary/30 hover:bg-indigo-600 transition">Next Question</button>
             </div>
         </div>
     `;
-    document.getElementById('exam-question-area').innerHTML = html;
-}
 
-function updatePalette() {
-    const palette = document.getElementById('exam-palette');
-    if(!palette) return;
-    
-    palette.innerHTML = allQuestions.map((_, idx) => `
-        <button onclick="jumpToQuestion(${idx})" 
-            class="h-10 w-full rounded-lg text-sm font-bold transition-all ${
-                idx === currentIdx ? 'ring-2 ring-indigo-500 ring-offset-2' : ''
-            } ${
-                userAnswers[idx] ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }">
-            ${idx + 1}
-        </button>
+    // Update Palettes (Desktop & Mobile)
+    const generatePalette = () => allQuestions.map((_, i) => `
+        <button onclick="jumpTo(${i})" class="h-9 rounded-lg text-sm font-bold transition ${i === currentIdx ? 'ring-2 ring-primary ring-offset-1' : ''} ${userAnswers[i] ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}">${i+1}</button>
     `).join('');
+
+    const deskPal = document.getElementById('desktop-palette');
+    if(deskPal) deskPal.innerHTML = generatePalette();
+
+    const mobPal = document.getElementById('mobile-palette-grid');
+    if(mobPal) mobPal.innerHTML = generatePalette();
 }
 
-function selectExamAnswer(key) {
-    if (userAnswers[currentIdx] === key) delete userAnswers[currentIdx]; // Toggle off
-    else userAnswers[currentIdx] = key;
-    
-    updateExamQuestion();
-    updatePalette();
-}
-
-function jumpToQuestion(idx) {
-    currentIdx = idx;
-    updateExamQuestion();
-    updatePalette();
+function selectExamAns(k) {
+    if(userAnswers[currentIdx] === k) delete userAnswers[currentIdx];
+    else userAnswers[currentIdx] = k;
+    updateExamUI();
 }
 
 function navExam(dir) {
-    const newIdx = currentIdx + dir;
-    if (newIdx >= 0 && newIdx < allQuestions.length) {
-        currentIdx = newIdx;
-        updateExamQuestion();
-        updatePalette();
+    const n = currentIdx + dir;
+    if(n >= 0 && n < allQuestions.length) {
+        currentIdx = n;
+        updateExamUI();
+    }
+}
+
+function jumpTo(i) {
+    currentIdx = i;
+    updateExamUI();
+    toggleMobilePalette(false); // Close modal if open
+}
+
+function toggleMobilePalette(forceState) {
+    const el = document.getElementById('mobile-palette-modal');
+    if (forceState !== undefined) {
+        if (!forceState) el.classList.add('hidden');
+        else el.classList.remove('hidden');
+    } else {
+        el.classList.toggle('hidden');
     }
 }
 
 function finishExam() {
     clearInterval(examTimer);
-    
-    // Calculate Score
-    let correct = 0, wrong = 0, skipped = 0;
-    
-    allQuestions.forEach((q, idx) => {
-        const ans = userAnswers[idx];
-        if (!ans) skipped++;
-        else if (ans === q.correct) correct++;
-        else wrong++;
+    let score = 0, correct = 0, wrong = 0;
+    allQuestions.forEach((q, i) => {
+        if(!userAnswers[i]) return;
+        if(userAnswers[i] === q.correct) { correct++; score++; }
+        else { wrong++; score -= 0.25; }
     });
     
-    const score = correct - (wrong * 0.25);
-    const percentage = Math.round((score / allQuestions.length) * 100);
-    
-    // Save Best Score
-    const prevBest = parseInt(localStorage.getItem(STORAGE_KEY_SCORE) || '0');
-    if (percentage > prevBest) localStorage.setItem(STORAGE_KEY_SCORE, percentage);
+    // Save Score
+    const percent = Math.max(0, Math.round((score / allQuestions.length) * 100));
+    const oldBest = parseInt(localStorage.getItem(STORAGE_KEY_SCORE)||'0');
+    if(percent > oldBest) localStorage.setItem(STORAGE_KEY_SCORE, percent);
 
-    // Render Result View
-    currentMode = 'result';
-    document.getElementById('nav-actions').innerHTML = ''; // Clear timer
-    
-    const html = `
-        <div class="max-w-2xl mx-auto pt-8 fade-enter">
-            <div class="bg-white rounded-3xl shadow-xl overflow-hidden mb-8 border border-slate-200">
-                <div class="bg-slate-900 text-white p-10 text-center relative overflow-hidden">
-                    <div class="absolute inset-0 bg-gradient-to-br from-indigo-600/30 to-purple-600/30"></div>
-                    <h2 class="text-xl font-medium text-slate-300 relative z-10">Your Score</h2>
-                    <div class="text-6xl font-bold my-4 relative z-10">${score.toFixed(2)}</div>
-                    <div class="inline-block bg-white/20 px-4 py-1 rounded-full text-sm font-medium backdrop-blur-sm relative z-10">
-                        ${percentage}% Accuracy
+    // Show Result
+    switchMode('result'); // Hides mobile nav, shows footer
+    document.getElementById('app-container').innerHTML = `
+        <div class="max-w-xl mx-auto pt-10 text-center fade-in">
+            <div class="bg-white rounded-3xl shadow-xl p-8 border border-slate-200">
+                <div class="w-24 h-24 bg-${percent >= 50 ? 'emerald' : 'orange'}-100 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl">
+                    ${percent >= 50 ? '🏆' : '💪'}
+                </div>
+                <h2 class="text-2xl font-bold text-slate-800">Exam Complete!</h2>
+                <div class="text-5xl font-extrabold text-primary my-4">${score.toFixed(2)}</div>
+                <p class="text-slate-500 mb-8">Accuracy: ${percent}%</p>
+                
+                <div class="grid grid-cols-2 gap-4 text-sm mb-8">
+                    <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                        <div class="font-bold text-green-700 text-xl">${correct}</div>
+                        <div class="text-green-600">Correct</div>
+                    </div>
+                    <div class="bg-red-50 p-4 rounded-xl border border-red-100">
+                        <div class="font-bold text-red-700 text-xl">${wrong}</div>
+                        <div class="text-red-600">Wrong</div>
                     </div>
                 </div>
                 
-                <div class="grid grid-cols-3 divide-x divide-slate-100 text-center py-6">
-                    <div>
-                        <div class="text-3xl font-bold text-emerald-500">${correct}</div>
-                        <div class="text-xs uppercase tracking-wider text-slate-400 font-semibold mt-1">Correct</div>
-                    </div>
-                    <div>
-                        <div class="text-3xl font-bold text-red-500">${wrong}</div>
-                        <div class="text-xs uppercase tracking-wider text-slate-400 font-semibold mt-1">Wrong</div>
-                    </div>
-                    <div>
-                        <div class="text-3xl font-bold text-slate-500">${skipped}</div>
-                        <div class="text-xs uppercase tracking-wider text-slate-400 font-semibold mt-1">Skipped</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex gap-4 justify-center">
-                <button onclick="switchMode('home')" class="px-6 py-3 rounded-xl border border-slate-300 text-slate-600 font-bold hover:bg-slate-50 transition">
-                    Dashboard
-                </button>
-                <button onclick="startReview()" class="px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition">
-                    Review Answers
-                </button>
+                <button onclick="switchMode('home')" class="w-full bg-slate-900 text-white py-3 rounded-xl font-bold hover:bg-slate-800 transition">Back to Home</button>
             </div>
         </div>
     `;
-    document.getElementById('app-container').innerHTML = html;
 }
 
-// --- Review Mode Logic ---
-
-function startReview() {
-    renderReviewList();
+// --- Practice Mode (Simplified for brevity) ---
+function startPractice() {
+    currentIdx = parseInt(localStorage.getItem(STORAGE_KEY_PRACTICE)||'0');
+    renderPractice();
 }
-
-function renderReviewList() {
-    // Generate the review list content
-    const listHtml = allQuestions.map((q, idx) => {
-        const userAns = userAnswers[idx];
-        const isCorrect = userAns === q.correct;
-        const isSkipped = !userAns;
-        
-        // Status Badge Logic
-        let badge = '';
-        if (isSkipped) badge = `<span class="bg-slate-100 text-slate-500 px-2 py-1 rounded text-xs font-bold">SKIPPED</span>`;
-        else if (isCorrect) badge = `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold">CORRECT</span>`;
-        else badge = `<span class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">WRONG</span>`;
-
-        return `
-            <div class="bg-white rounded-xl border border-slate-200 p-6 mb-4 shadow-sm">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="flex items-center gap-3">
-                        <span class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 text-sm">${idx + 1}</span>
-                        ${badge}
+function renderPractice() {
+    const q = allQuestions[currentIdx];
+    localStorage.setItem(STORAGE_KEY_PRACTICE, currentIdx);
+    
+    document.getElementById('app-container').innerHTML = `
+        <div class="max-w-2xl mx-auto pt-6 fade-in pb-20">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 bg-slate-50 flex justify-between">
+                    <span class="font-bold text-slate-500">Practice #${currentIdx+1}</span>
+                    <button onclick="switchMode('home')" class="text-primary text-sm font-bold">Quit</button>
+                </div>
+                <div class="p-8">
+                    <h3 class="text-xl font-medium mb-6">${q.question}</h3>
+                    <div class="space-y-3" id="prac-opts">
+                        ${Object.entries(q.options).map(([k,v]) => `
+                            <button onclick="checkPrac('${k}')" id="btn-${k}" class="w-full text-left p-4 rounded-xl border border-slate-200 hover:bg-slate-50 flex gap-4">
+                                <span class="font-bold text-slate-400 bg-slate-100 w-6 h-6 rounded flex items-center justify-center">${k}</span>
+                                <span>${v}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+                    <div id="expl" class="hidden mt-6 bg-blue-50 p-4 rounded-xl text-sm text-slate-700 border border-blue-100">
+                        <strong class="text-blue-600 block mb-1">Explanation:</strong> ${q.explanation}
                     </div>
                 </div>
-                
-                <h4 class="font-medium text-lg text-slate-800 mb-4">${q.question}</h4>
-                
-                <div class="grid md:grid-cols-2 gap-4 text-sm mb-4">
-                    <div class="p-3 rounded-lg border ${isCorrect ? 'border-emerald-200 bg-emerald-50' : (userAns ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-slate-50')}">
-                        <span class="block text-xs font-bold opacity-70 mb-1">Your Answer</span>
-                        <span class="font-semibold">${userAns ? q.options[userAns] : 'Not Answered'}</span>
-                    </div>
-                    <div class="p-3 rounded-lg border border-emerald-200 bg-emerald-50">
-                        <span class="block text-xs font-bold text-emerald-700 mb-1">Correct Answer</span>
-                        <span class="font-semibold text-emerald-900">${q.options[q.correct]}</span>
-                    </div>
+                <div class="p-4 bg-slate-50 flex justify-between">
+                    <button onclick="movePrac(-1)" class="px-4 py-2 font-bold text-slate-500" ${currentIdx===0?'disabled':''}>Prev</button>
+                    <button onclick="movePrac(1)" class="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold">Next</button>
                 </div>
-                
-                <div class="text-sm text-slate-600 bg-slate-50 p-4 rounded-lg">
-                    <span class="font-bold text-slate-900 block mb-1">Explanation:</span>
-                    ${q.explanation}
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    const html = `
-        <div class="max-w-3xl mx-auto pt-6 fade-enter">
-            <div class="flex items-center justify-between mb-8">
-                <h2 class="text-2xl font-bold text-slate-800">Answer Review</h2>
-                <button onclick="switchMode('home')" class="text-indigo-600 font-bold hover:underline">Exit Review</button>
-            </div>
-            ${listHtml}
-             <div class="text-center pb-12">
-                <button onclick="switchMode('home')" class="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold">Back to Dashboard</button>
             </div>
         </div>
     `;
+}
+function checkPrac(k) {
+    const q = allQuestions[currentIdx];
+    const btn = document.getElementById(`btn-${k}`);
+    const corBtn = document.getElementById(`btn-${q.correct}`);
     
-    document.getElementById('app-container').innerHTML = html;
+    if(k === q.correct) {
+        btn.classList.add('bg-green-100', 'border-green-500');
+    } else {
+        btn.classList.add('bg-red-50', 'border-red-500');
+        corBtn.classList.add('bg-green-100', 'border-green-500');
+    }
+    document.getElementById('expl').classList.remove('hidden');
+}
+function movePrac(d) {
+    const n = currentIdx + d;
+    if(n>=0 && n<allQuestions.length) { currentIdx=n; renderPractice(); }
 }
