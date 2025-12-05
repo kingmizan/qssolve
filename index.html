@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Senior Officer Prep | ExamBuzz</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Hind Siliguri', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#4F46E5', // Indigo 600
+                        secondary: '#64748B', // Slate 500
+                        success: '#10B981', // Emerald 500
+                        surface: '#F8FAFC', // Slate 50
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Hind Siliguri', sans-serif; background-color: #F1F5F9; }
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .fade-enter { animation: enter 0.3s ease-out forwards; }
+        @keyframes enter {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Custom Scrollbar for Question Palette */
+        .scroller::-webkit-scrollbar { width: 6px; }
+        .scroller::-webkit-scrollbar-thumb { background-color: #CBD5E1; border-radius: 4px; }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col overflow-hidden">
+
+    <nav class="glass-nav border-b border-slate-200 z-50 fixed w-full top-0 left-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="switchMode('home')">
+                <div class="bg-primary/10 p-2 rounded-lg text-primary">
+                    <i class="ph-fill ph-graduation-cap text-2xl"></i>
+                </div>
+                <span class="font-bold text-xl tracking-tight text-slate-900">Exam<span class="text-primary">Buzz</span></span>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div id="nav-actions" class="hidden sm:flex items-center gap-2">
+                    </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow pt-20 pb-6 px-4 overflow-y-auto scroller w-full max-w-7xl mx-auto" id="app-container">
+        <div id="loading" class="h-full flex flex-col items-center justify-center">
+            <i class="ph-duotone ph-spinner-gap animate-spin text-4xl text-primary mb-4"></i>
+            <p class="text-slate-500 font-medium">Loading Database...</p>
+        </div>
+    </main>
+
+    <div id="modal-overlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] hidden flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div id="modal-content" class="bg-white rounded-2xl shadow-2xl max-w-md w-full transform scale-95 transition-transform duration-300 p-6">
+            </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
