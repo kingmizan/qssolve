@@ -1,115 +1,333 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Senior Officer Prep | ExamBuzz</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result Portal | Bangladesh Bank</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #006a4e; /* Bangladesh Green */
+            --primary-dark: #004d38;
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --text-main: #1f2937;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
 
-    <script src="https://cdn.tailwindcss.com"></script>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--surface);
+            width: 100%;
+            max-width: 420px;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Header */
+        .header {
+            background: var(--primary);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        /* Content Area */
+        .content {
+            padding: 30px 25px;
+        }
+
+        /* Status Bar */
+        #db-status {
+            font-size: 0.8rem;
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 8px;
+            border-radius: 6px;
+            background: #eef2ff;
+            color: #4f46e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        #db-status.error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        /* Search Input */
+        .input-group {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        input {
+            width: 100%;
+            padding: 16px 16px;
+            font-size: 1.1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            text-align: center;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 106, 78, 0.1);
+        }
+
+        /* Button */
+        button {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            opacity: 0.5;
+            pointer-events: none; /* Disabled until loaded */
+        }
+
+        button.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        button:active { transform: scale(0.98); }
+        button:hover { background: var(--primary-dark); }
+
+        /* Results Area */
+        #result-area {
+            margin-top: 25px;
+            display: none;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        .result-card {
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid transparent;
+        }
+
+        .result-card.success {
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+            color: #065f46;
+        }
+
+        .result-card.failure {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: #991b1b;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .success .badge { background: #10b981; color: white; }
+        .failure .badge { background: #ef4444; color: white; }
+
+        .bank-name { font-size: 1.25rem; font-weight: 700; margin: 5px 0; }
+        .roll-no { font-size: 0.95rem; opacity: 0.8; }
+
+        /* Spinner */
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid currentColor;
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            animation: rotation 1s linear infinite;
+        }
+
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="header">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 10px;">
+                <path d="M3 21h18M5 21V7l8-4 8 4v14M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/>
+            </svg>
+            <h1>Result Portal</h1>
+            <p>Bankers Selection Committee Secretariat</p>
+        </div>
+
+        <div class="content">
+            <div id="db-status">
+                <span class="spinner"></span> Connecting to database...
+            </div>
+
+            <div class="input-group">
+                <input type="number" id="rollInput" placeholder="Enter Roll Number" autocomplete="off">
+            </div>
+            
+            <button id="searchBtn" onclick="searchRoll()">Check Result</button>
+
+            <div id="result-area"></div>
+
+            <div class="footer">
+                <p>&copy; 2025 Bankers Selection Committee. <br>Official Result Lookup.</p>
+            </div>
+        </div>
+    </div>
 
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Hind Siliguri', 'sans-serif'] },
-                    colors: {
-                        primary: '#6366f1', // Indigo 500
-                        primaryDark: '#4f46e5', // Indigo 600
-                        surface: '#f8fafc', // Slate 50
-                        card: '#ffffff',
-                    },
-                    boxShadow: {
-                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-                        'glow': '0 0 15px rgba(99, 102, 241, 0.3)'
+        let studentData = [];
+        const statusEl = document.getElementById('db-status');
+        const btnEl = document.getElementById('searchBtn');
+
+        // 1. Fetch data with Cache Busting (Fix for server issues)
+        window.addEventListener('DOMContentLoaded', () => {
+            // We add ?v=timestamp to force the browser to get the new file, not a cached broken one
+            const cacheBuster = new Date().getTime();
+            
+            fetch('result.csv?v=' + cacheBuster)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Server Error: ${response.status} (File not found)`);
+                    }
+                    return response.text();
+                })
+                .then(csvText => {
+                    processCSV(csvText);
+                })
+                .catch(error => {
+                    console.error("Loading Error:", error);
+                    statusEl.classList.add('error');
+                    statusEl.innerHTML = `
+                        ⚠️ <b>Failed to load result.csv</b><br>
+                        Make sure the file is named exactly <b>result.csv</b><br>
+                        and is in the same folder.
+                    `;
+                });
+        });
+
+        // 2. Process Data
+        function processCSV(text) {
+            const lines = text.split('\n');
+            studentData = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    const parts = line.split(',');
+                    if (parts.length >= 2) {
+                        studentData.push({ 
+                            bank: parts[0].trim(), 
+                            roll: parts[1].trim() 
+                        });
                     }
                 }
             }
+
+            // Update UI on success
+            if (studentData.length > 0) {
+                statusEl.innerHTML = `✅ Database Active (${studentData.length} Records)`;
+                statusEl.style.color = '#059669';
+                statusEl.style.background = '#d1fae5';
+                btnEl.classList.add('active'); // Enable button
+                btnEl.innerText = "Check Result";
+            } else {
+                statusEl.innerHTML = `⚠️ Database Empty`;
+                statusEl.classList.add('error');
+            }
         }
+
+        // 3. Search Function
+        function searchRoll() {
+            const input = document.getElementById('rollInput').value.trim();
+            const resultArea = document.getElementById('result-area');
+
+            if (!input) {
+                alert("Please enter a roll number.");
+                return;
+            }
+
+            // Find match
+            const match = studentData.find(s => s.roll === input);
+
+            resultArea.style.display = 'block';
+
+            if (match) {
+                resultArea.innerHTML = `
+                    <div class="result-card success">
+                        <span class="badge">Selected</span>
+                        <div class="bank-name">${match.bank}</div>
+                        <div class="roll-no">Roll: <strong>${match.roll}</strong></div>
+                    </div>
+                `;
+            } else {
+                resultArea.innerHTML = `
+                    <div class="result-card failure">
+                        <span class="badge">Not Found</span>
+                        <div class="bank-name">We couldn't find a match</div>
+                        <div class="roll-no">Roll: <strong>${input}</strong></div>
+                        <div style="font-size:0.8rem; margin-top:5px; opacity:0.7;">Please check your input or try again later.</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Enable "Enter" key
+        document.getElementById('rollInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') searchRoll();
+        });
     </script>
-    <style>
-        body { background-color: #F1F5F9; -webkit-tap-highlight-color: transparent; }
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); border-bottom: 1px solid #e2e8f0; }
-        .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        /* Smooth Scroll */
-        html { scroll-behavior: smooth; }
-        /* Hide Scrollbar */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
-</head>
-<body class="text-slate-800 h-screen flex flex-col overflow-hidden selection:bg-indigo-100 selection:text-indigo-700">
-
-    <header class="glass fixed top-0 w-full z-50 h-16 flex items-center justify-between px-4 lg:px-8 transition-all duration-300">
-        <div onclick="switchMode('home')" class="flex items-center gap-2.5 cursor-pointer group">
-            <div class="bg-indigo-50 p-2 rounded-xl text-primary group-hover:scale-105 transition-transform">
-                <i class="ph-fill ph-graduation-cap text-2xl"></i>
-            </div>
-            <div>
-                <h1 class="font-bold text-lg leading-tight tracking-tight text-slate-900">Exam<span class="text-primary">Buzz</span></h1>
-                <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Senior Officer</p>
-            </div>
-        </div>
-        
-        <div id="header-actions" class="flex items-center gap-3"></div>
-    </header>
-
-    <main id="app-container" class="flex-grow pt-20 pb-20 w-full max-w-5xl mx-auto px-4 sm:px-6 overflow-y-auto no-scrollbar scroll-smooth">
-        <div class="flex flex-col items-center justify-center h-[70vh] text-slate-400">
-            <div class="relative">
-                <div class="w-12 h-12 border-4 border-indigo-100 border-t-primary rounded-full animate-spin"></div>
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <i class="ph-fill ph-lightning text-primary text-xs"></i>
-                </div>
-            </div>
-            <p class="mt-4 font-medium text-sm animate-pulse">Initializing Question Bank...</p>
-        </div>
-    </main>
-
-    <div id="exam-footer" class="fixed bottom-0 w-full bg-white border-t border-slate-100 p-3 z-40 hidden shadow-[0_-5px_20px_rgba(0,0,0,0.03)]">
-        <div class="flex justify-between items-center max-w-5xl mx-auto">
-            <button onclick="navExam(-1)" class="w-12 h-12 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-50 active:scale-95 transition">
-                <i class="ph-bold ph-caret-left text-2xl"></i>
-            </button>
-            
-            <button onclick="togglePalette()" class="flex flex-col items-center gap-1 group">
-                <div class="w-10 h-10 rounded-xl bg-indigo-50 text-primary flex items-center justify-center group-active:scale-95 transition">
-                    <i class="ph-fill ph-squares-four text-xl"></i>
-                </div>
-                <span class="text-[10px] font-bold text-slate-500 uppercase">Palette</span>
-            </button>
-
-            <button onclick="navExam(1)" class="w-12 h-12 flex items-center justify-center rounded-full bg-slate-900 text-white shadow-lg shadow-slate-200 active:scale-95 transition">
-                <i class="ph-bold ph-caret-right text-xl"></i>
-            </button>
-        </div>
-    </div>
-
-    <div id="palette-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden transition-opacity" onclick="togglePalette()">
-        <div class="absolute bottom-0 w-full bg-white rounded-t-3xl p-6 max-h-[75vh] overflow-y-auto animate-slide-up shadow-2xl" onclick="event.stopPropagation()">
-            <div class="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 pb-2 border-b border-slate-50">
-                <div>
-                    <h3 class="font-bold text-lg text-slate-800">Question Map</h3>
-                    <p class="text-xs text-slate-400 mt-1">Tap a number to jump</p>
-                </div>
-                <button onclick="togglePalette()" class="p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition"><i class="ph-bold ph-x"></i></button>
-            </div>
-            
-            <div class="flex gap-4 mb-6 text-xs font-semibold">
-                <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-primary"></div> Answered</div>
-                <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-slate-100 border border-slate-200"></div> Pending</div>
-            </div>
-
-            <div id="palette-grid" class="grid grid-cols-5 sm:grid-cols-8 gap-3"></div>
-        </div>
-    </div>
-
-    <script src="app.js?v=new_fix_1"></script>
 </body>
 </html>
