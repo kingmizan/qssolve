@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Route Finder (Hybrid)</title>
+    <title>Exam Route Finder (Live)</title>
     
     <!-- ফন্ট ও ডিজাইন -->
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- CSV পার্সার -->
+    <!-- PapaParse (CSV রিডার) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
     <style>
@@ -30,9 +30,9 @@
                 <i class="fa-solid fa-location-arrow text-xl"></i>
                 <h1 class="font-bold text-lg tracking-tight">ExamCommute</h1>
             </div>
-            <!-- কানেকশন ইন্ডিকেটর -->
-            <div id="connectionStatus" class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-full border border-slate-200">
-                অপেক্ষা করুন...
+            <!-- কানেকশন ব্যাজ -->
+            <div id="connectionBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-slate-100 text-slate-500 border-slate-200">
+                লোড হচ্ছে...
             </div>
         </div>
     </header>
@@ -40,7 +40,14 @@
     <main class="max-w-md mx-auto p-4 pb-20 space-y-6 flex-grow w-full">
         
         <!-- সার্চ বক্স -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+            
+            <!-- লোডার (ডেটা না আসা পর্যন্ত দেখাবে) -->
+            <div id="loaderOverlay" class="absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center">
+                <i class="fa-solid fa-circle-notch fa-spin text-emerald-600 text-3xl mb-2"></i>
+                <p class="text-xs text-slate-500 font-semibold animate-pulse" id="loaderText">সার্ভার কানেক্ট করা হচ্ছে...</p>
+            </div>
+
             <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">রুট অনুসন্ধান</h2>
             
             <div class="space-y-5">
@@ -48,7 +55,7 @@
                     <label class="text-xs font-bold text-slate-500 ml-1 mb-1.5 block">কোথা থেকে?</label>
                     <div class="absolute left-3 top-9 text-emerald-500 z-10 pointer-events-none"><i class="fa-solid fa-map-pin"></i></div>
                     <select id="fromSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100">
-                        <option value="">লোডিং...</option>
+                        <option value="">অপেক্ষা করুন...</option>
                     </select>
                     <div class="absolute right-4 top-10 pointer-events-none text-slate-400"><i class="fa-solid fa-chevron-down text-xs"></i></div>
                 </div>
@@ -57,7 +64,7 @@
                     <label class="text-xs font-bold text-slate-500 ml-1 mb-1.5 block">কোথায় যাবেন?</label>
                     <div class="absolute left-3 top-9 text-red-500 z-10 pointer-events-none"><i class="fa-solid fa-school"></i></div>
                     <select id="toSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100">
-                        <option value="">লোডিং...</option>
+                        <option value="">অপেক্ষা করুন...</option>
                     </select>
                     <div class="absolute right-4 top-10 pointer-events-none text-slate-400"><i class="fa-solid fa-chevron-down text-xs"></i></div>
                 </div>
@@ -76,11 +83,11 @@
     </footer>
 
     <script>
-        // ১. গুগল শিট লিংক
-        const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUzMNl_VaFOyRmeSuR2_tz7IbyodLC1hahyEI2q2-gn5xbgUixgPmOCdNpcdyOnglVGzygslu3g_yo/pub?output=csv"; 
-        
-        // ২. ব্যাকআপ ডেটা (যদি ইন্টারনেট না থাকে বা লোড না হয় তবে এটি কাজ করবে)
-        const FALLBACK_DATA = `From,To,Summary,Time,MethodTitle,MethodIcon,StepLabel,StepText,Tips
+        // ১. আপনার দেওয়া গুগল শিট লিংক
+        const SHEET_ID = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUzMNl_VaFOyRmeSuR2_tz7IbyodLC1hahyEI2q2-gn5xbgUixgPmOCdNpcdyOnglVGzygslu3g_yo/pub?output=csv";
+
+        // ২. ব্যাকআপ ডেটা (ইমার্জেন্সি ব্যবহার)
+        const BACKUP_DATA = `From,To,Summary,Time,MethodTitle,MethodIcon,StepLabel,StepText,Tips
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,বাসে উঠুন,মিরপুর ১০ ১১ বা কালশী থেকে 'অছিম পরিবহন' বা 'আলিফ পরিবহন'-এ উঠুন।,যাওয়ার আগে নিশ্চিত হয়ে নিন আপনি স্কুল ভবন (শান্তিবাগ) নাকি কলেজ ভবনে (মাতুয়াইল) যাবেন।|ডেমরা রোডে মাঝে মাঝে জ্যাম থাকে।
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,নামার স্থান,ডেমরা স্টাফ কোয়ার্টার।,-
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,পরবর্তী ধাপ,সেখান থেকে রিকশা বা ইজিবাইকে করে সরাসরি স্কুলে পৌঁছানো যায়।,-
@@ -117,60 +124,84 @@
 
         let routesData = [];
 
-        // প্রক্সি লিস্ট
-        const PROXIES = [
-            'https://corsproxy.io/?',
-            'https://api.allorigins.win/raw?url=',
-            '' // ডাইরেক্ট
-        ];
-
         document.addEventListener('DOMContentLoaded', () => {
-            initDataLoad();
+            initApp();
             setupEventListeners();
         });
 
-        async function initDataLoad() {
-            const statusBadge = document.getElementById('connectionStatus');
-            
-            // প্রথমে লাইভ ডেটা আনার চেষ্টা
-            for (let i = 0; i < PROXIES.length; i++) {
+        // ৩. শক্তিশালী ডেটা ফেচার (Robust Data Fetcher)
+        async function initApp() {
+            const badge = document.getElementById('connectionBadge');
+            const loaderOverlay = document.getElementById('loaderOverlay');
+            const loaderText = document.getElementById('loaderText');
+
+            let csvText = "";
+            let source = "OFFLINE";
+
+            // ধাপ ১: সরাসরি চেষ্টা
+            try {
+                loaderText.innerText = "সার্ভার কানেক্ট হচ্ছে...";
+                const response = await fetch(SHEET_ID);
+                if (response.ok) {
+                    csvText = await response.text();
+                    source = "LIVE";
+                } else {
+                    throw new Error("Direct fetch failed");
+                }
+            } catch (err) {
+                console.warn("Direct fetch failed, trying proxy...");
+                
+                // ধাপ ২: প্রক্সি দিয়ে চেষ্টা (CORS বাইপাস করার জন্য)
                 try {
-                    const fetchUrl = (PROXIES[i] === '' ? SHEET_URL : PROXIES[i] + encodeURIComponent(SHEET_URL)) + "&t=" + Date.now();
-                    const response = await fetch(fetchUrl);
-                    if (!response.ok) throw new Error("Failed");
-                    
-                    const csvText = await response.text();
-                    if(parseAndLoad(csvText)) {
-                        statusBadge.innerText = "● লাইভ ডেটা";
-                        statusBadge.className = "text-xs font-semibold text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-200";
-                        return; // সফল হলে বেরিয়ে যাবে
+                    loaderText.innerText = "বিকল্প পথে চেষ্টা করা হচ্ছে...";
+                    // AllOrigins প্রক্সি ব্যবহার করা হচ্ছে যা JSON রিটার্ন করে
+                    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(SHEET_ID)}`;
+                    const response = await fetch(proxyUrl);
+                    if (response.ok) {
+                        const data = await response.json();
+                        csvText = data.contents; // আসল CSV টেক্সট এখানে থাকে
+                        source = "PROXY (LIVE)";
+                    } else {
+                        throw new Error("Proxy failed");
                     }
-                } catch (e) {
-                    console.warn(`Proxy ${i} failed.`);
+                } catch (proxyErr) {
+                    console.error("All live methods failed. Using backup.");
+                    // ধাপ ৩: সব ব্যর্থ হলে ব্যাকআপ ডেটা
+                    csvText = BACKUP_DATA;
+                    source = "OFFLINE";
                 }
             }
 
-            // সব চেষ্টা ব্যর্থ হলে ব্যাকআপ ডেটা ব্যবহার করবে
-            console.log("Using Fallback Data");
-            statusBadge.innerText = "● অফলাইন মোড";
-            statusBadge.className = "text-xs font-semibold text-amber-600 bg-amber-100 px-2 py-1 rounded-full border border-amber-200";
-            parseAndLoad(FALLBACK_DATA);
-        }
-
-        function parseAndLoad(csv) {
-            let success = false;
-            Papa.parse(csv, {
+            // ডেটা প্রসেসিং
+            Papa.parse(csvText, {
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
                     if (results.data && results.data.length > 0) {
-                        routesData = processData(results.data);
-                        populateDropdowns();
-                        success = true;
+                        processAndReady(results.data, source);
+                    } else {
+                        // যদি ডাউনলোড হওয়া ফাইলে ডেটা না থাকে
+                        console.error("Parsed data empty, forcing backup");
+                        const backupParse = Papa.parse(BACKUP_DATA, { header: true, skipEmptyLines: true });
+                        processAndReady(backupParse.data, "OFFLINE");
                     }
                 }
             });
-            return success;
+
+            function processAndReady(data, src) {
+                routesData = processData(data);
+                populateDropdowns();
+                
+                loaderOverlay.classList.add('hidden');
+                
+                if (src.includes("LIVE")) {
+                    badge.innerText = "● লাইভ";
+                    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200 animate-pulse";
+                } else {
+                    badge.innerText = "● অফলাইন";
+                    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200";
+                }
+            }
         }
 
         function processData(rawData) {
@@ -319,5 +350,3 @@
     </script>
 </body>
 </html>
-
-
