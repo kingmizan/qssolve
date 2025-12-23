@@ -1,333 +1,335 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Result Portal | Bangladesh Bank (unofficial)</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>Exam Route Finder (Smart Loader)</title>
+    
+    <!-- ফন্ট ও ডিজাইন -->
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- CSV পার্সার লাইব্রেরি (PapaParse) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
     <style>
-        :root {
-            --primary: #006a4e; /* Bangladesh Green */
-            --primary-dark: #004d38;
-            --bg: #f3f4f6;
-            --surface: #ffffff;
-            --text-main: #1f2937;
-            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg);
-            color: var(--text-main);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .card {
-            background: var(--surface);
-            width: 100%;
-            max-width: 420px;
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* Header */
-        .header {
-            background: var(--primary);
-            padding: 30px 20px;
-            text-align: center;
-            color: white;
-        }
-
-        .header h1 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .header p {
-            font-size: 0.9rem;
-            opacity: 0.9;
-            font-weight: 300;
-        }
-
-        /* Content Area */
-        .content {
-            padding: 30px 25px;
-        }
-
-        /* Status Bar */
-        #db-status {
-            font-size: 0.8rem;
-            text-align: center;
-            margin-bottom: 20px;
-            padding: 8px;
-            border-radius: 6px;
-            background: #eef2ff;
-            color: #4f46e5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-
-        #db-status.error {
-            background: #fef2f2;
-            color: #dc2626;
-            border: 1px solid #fecaca;
-        }
-
-        /* Search Input */
-        .input-group {
-            position: relative;
-            margin-bottom: 25px;
-        }
-
-        input {
-            width: 100%;
-            padding: 16px 16px;
-            font-size: 1.1rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 12px;
-            outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            text-align: center;
-            font-weight: 600;
-            letter-spacing: 1px;
-        }
-
-        input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(0, 106, 78, 0.1);
-        }
-
-        /* Button */
-        button {
-            width: 100%;
-            padding: 16px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-            opacity: 0.5;
-            pointer-events: none; /* Disabled until loaded */
-        }
-
-        button.active {
-            opacity: 1;
-            pointer-events: all;
-        }
-
-        button:active { transform: scale(0.98); }
-        button:hover { background: var(--primary-dark); }
-
-        /* Results Area */
-        #result-area {
-            margin-top: 25px;
-            display: none;
-            animation: fadeIn 0.4s ease-out;
-        }
-
-        .result-card {
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-            border: 1px solid transparent;
-        }
-
-        .result-card.success {
-            background: #ecfdf5;
-            border-color: #a7f3d0;
-            color: #065f46;
-        }
-
-        .result-card.failure {
-            background: #fef2f2;
-            border-color: #fecaca;
-            color: #991b1b;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        }
-
-        .success .badge { background: #10b981; color: white; }
-        .failure .badge { background: #ef4444; color: white; }
-
-        .bank-name { font-size: 1.25rem; font-weight: 700; margin: 5px 0; }
-        .roll-no { font-size: 0.95rem; opacity: 0.8; }
-
-        /* Spinner */
-        .spinner {
-            width: 14px;
-            height: 14px;
-            border: 2px solid currentColor;
-            border-bottom-color: transparent;
-            border-radius: 50%;
-            display: inline-block;
-            animation: rotation 1s linear infinite;
-        }
-
-        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Footer */
-        .footer {
-            text-align: center;
-            margin-top: 30px;
-            font-size: 0.75rem;
-            color: #6b7280;
-        }
+        body { font-family: 'Hind Siliguri', sans-serif; }
+        .slide-up { animation: slideUp 0.5s ease-out; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
 
-    <div class="card">
-        <div class="header">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 10px;">
-                <path d="M3 21h18M5 21V7l8-4 8 4v14M10 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/>
-            </svg>
-            <h1>Result Portal (Unofficial) </h1>
-            <p>অফিসার ২০২১ ক্যাশ</p>
+    <!-- হেডার -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2 text-emerald-700">
+                <i class="fa-solid fa-location-arrow text-xl"></i>
+                <h1 class="font-bold text-lg tracking-tight">ExamCommute <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full ml-1">Live</span></h1>
+            </div>
+            <div class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-full border border-slate-200">ঢাকা</div>
         </div>
+    </header>
 
-        <div class="content">
-            <div id="db-status">
-                <span class="spinner"></span> Connecting to database...
-            </div>
+    <main class="max-w-md mx-auto p-4 pb-20 space-y-6 flex-grow w-full">
+        
+        <!-- স্ট্যাটাস মেসেজ -->
+        <div id="statusMessage" class="hidden text-center p-4 text-sm rounded-lg mb-4 border shadow-sm"></div>
 
-            <div class="input-group">
-                <input type="number" id="rollInput" placeholder="Enter Roll Number" autocomplete="off">
-            </div>
+        <!-- সার্চ বক্স -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">রুট অনুসন্ধান</h2>
             
-            <button id="searchBtn" onclick="searchRoll()">Check Result</button>
+            <div class="space-y-5">
+                <div class="relative group">
+                    <label class="text-xs font-bold text-slate-500 ml-1 mb-1.5 block">কোথা থেকে?</label>
+                    <div class="absolute left-3 top-9 text-emerald-500 z-10 pointer-events-none"><i class="fa-solid fa-map-pin"></i></div>
+                    <select id="fromSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100">
+                        <option value="">অপেক্ষা করুন...</option>
+                    </select>
+                    <div class="absolute right-4 top-10 pointer-events-none text-slate-400"><i class="fa-solid fa-chevron-down text-xs"></i></div>
+                </div>
 
-            <div id="result-area"></div>
+                <div class="relative group">
+                    <label class="text-xs font-bold text-slate-500 ml-1 mb-1.5 block">কোথায় যাবেন?</label>
+                    <div class="absolute left-3 top-9 text-red-500 z-10 pointer-events-none"><i class="fa-solid fa-school"></i></div>
+                    <select id="toSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100">
+                        <option value="">অপেক্ষা করুন...</option>
+                    </select>
+                    <div class="absolute right-4 top-10 pointer-events-none text-slate-400"><i class="fa-solid fa-chevron-down text-xs"></i></div>
+                </div>
 
-            <div class="footer">
-                <p>&copy; 2025 Bankers Selection Committee. <br>Official Result Lookup.</p>
+                <button onclick="searchRoute()" id="searchBtn" disabled class="w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 transition-all active:scale-95 bg-slate-200 text-slate-400 cursor-not-allowed">
+                    <i class="fa-solid fa-magnifying-glass"></i> রুট দেখুন
+                </button>
             </div>
         </div>
-    </div>
+
+        <!-- লোডিং স্পিনার -->
+        <div id="loading" class="text-center py-4">
+            <i class="fa-solid fa-circle-notch fa-spin text-emerald-600 text-2xl"></i>
+            <p class="text-xs text-slate-400 mt-2" id="loadingText">সার্ভারের সাথে সংযোগ স্থাপন করা হচ্ছে...</p>
+        </div>
+
+        <!-- ফলাফল কন্টেইনার -->
+        <div id="resultContainer" class="hidden"></div>
+    </main>
+
+    <footer class="text-center py-6 text-slate-400 text-sm">
+        <p>&copy; ২০২৫ স্টুডেন্ট হেল্পলাইন</p>
+    </footer>
 
     <script>
-        let studentData = [];
-        const statusEl = document.getElementById('db-status');
-        const btnEl = document.getElementById('searchBtn');
+        // =================================================================
+        // আপনার গুগল শিট লিংক
+        // =================================================================
+        const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUzMNl_VaFOyRmeSuR2_tz7IbyodLC1hahyEI2q2-gn5xbgUixgPmOCdNpcdyOnglVGzygslu3g_yo/pub?output=csv"; 
 
-        // 1. Fetch data with Cache Busting (Fix for server issues)
-        window.addEventListener('DOMContentLoaded', () => {
-            // We add ?v=timestamp to force the browser to get the new file, not a cached broken one
-            const cacheBuster = new Date().getTime();
-            
-            fetch('result.csv?v=' + cacheBuster)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`Server Error: ${response.status} (File not found)`);
-                    }
-                    return response.text();
-                })
-                .then(csvText => {
-                    processCSV(csvText);
-                })
-                .catch(error => {
-                    console.error("Loading Error:", error);
-                    statusEl.classList.add('error');
-                    statusEl.innerHTML = `
-                        ⚠️ <b>Failed to load result.csv</b><br>
-                        Make sure the file is named exactly <b>result.csv</b><br>
-                        and is in the same folder.
-                    `;
-                });
+        // একাধিক প্রক্সি লিস্ট (একটির পর একটি চেষ্টা করবে)
+        const PROXIES = [
+            'https://corsproxy.io/?',
+            'https://api.allorigins.win/raw?url=',
+            '' // শেষ চেষ্টা হিসেবে ডাইরেক্ট লিংক
+        ];
+
+        let routesData = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initDataLoad();
+            setupEventListeners();
         });
 
-        // 2. Process Data
-        function processCSV(text) {
-            const lines = text.split('\n');
-            studentData = [];
+        async function initDataLoad() {
+            const loadingText = document.getElementById('loadingText');
+            
+            // ধাপে ধাপে ডেটা লোড করার চেষ্টা
+            for (let i = 0; i < PROXIES.length; i++) {
+                const proxy = PROXIES[i];
+                const finalUrl = proxy + encodeURIComponent(SHEET_URL);
+                
+                // ডাইরেক্ট লিংকের জন্য এনকোড দরকার নেই
+                const fetchUrl = proxy === '' ? SHEET_URL : proxy + SHEET_URL; 
 
-            for (let i = 1; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (line) {
-                    const parts = line.split(',');
-                    if (parts.length >= 2) {
-                        studentData.push({ 
-                            bank: parts[0].trim(), 
-                            roll: parts[1].trim() 
-                        });
+                try {
+                    loadingText.innerText = `চেষ্টা করা হচ্ছে (সার্ভার ${i + 1})...`;
+                    console.log(`Attempting load via: ${fetchUrl}`);
+
+                    const response = await fetch(fetchUrl);
+                    if (!response.ok) throw new Error("HTTP Error");
+                    
+                    const csvText = await response.text();
+                    
+                    // PapaParse দিয়ে নির্ভুলভাবে ডেটা প্রসেস করা
+                    Papa.parse(csvText, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: function(results) {
+                            if (results.data && results.data.length > 0) {
+                                console.log("Data loaded successfully via Proxy " + i);
+                                routesData = processData(results.data);
+                                finishLoading(true);
+                            } else {
+                                throw new Error("Parsed data is empty");
+                            }
+                        },
+                        error: function(err) {
+                            throw err;
+                        }
+                    });
+                    
+                    return; // সফল হলে লুপ ব্রেক করে বের হয়ে যাবে
+
+                } catch (err) {
+                    console.error(`Failed on attempt ${i}:`, err);
+                    if (i === PROXIES.length - 1) {
+                        // সব চেষ্টা ব্যর্থ হলে
+                        finishLoading(false, err.message);
                     }
                 }
             }
+        }
 
-            // Update UI on success
-            if (studentData.length > 0) {
-                statusEl.innerHTML = `✅ Database Active (${studentData.length} Records)`;
-                statusEl.style.color = '#059669';
-                statusEl.style.background = '#d1fae5';
-                btnEl.classList.add('active'); // Enable button
-                btnEl.innerText = "Check Result";
+        function finishLoading(success, msg) {
+            const loadingEl = document.getElementById('loading');
+            const statusEl = document.getElementById('statusMessage');
+            const fromSelect = document.getElementById('fromSelect');
+            const toSelect = document.getElementById('toSelect');
+
+            loadingEl.classList.add('hidden');
+
+            if (success) {
+                populateDropdowns();
             } else {
-                statusEl.innerHTML = `⚠️ Database Empty`;
-                statusEl.classList.add('error');
+                statusEl.innerHTML = `
+                    <div class="text-red-600 font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> ডেটা লোড ব্যর্থ হয়েছে!</div>
+                    <div class="text-xs text-red-500">
+                        সম্ভাব্য কারণ: ইন্টারনেট কানেকশন নেই অথবা গুগল শিট লিংকটি সঠিক নয়।<br>
+                        (Link: ${SHEET_URL.substring(0, 30)}...)
+                    </div>
+                `;
+                statusEl.classList.remove('hidden');
+                statusEl.classList.add('bg-red-50', 'border-red-200');
+                
+                fromSelect.innerHTML = '<option>কানেকশন এরর</option>';
+                toSelect.innerHTML = '<option>কানেকশন এরর</option>';
             }
         }
 
-        // 3. Search Function
-        function searchRoll() {
-            const input = document.getElementById('rollInput').value.trim();
-            const resultArea = document.getElementById('result-area');
+        function processData(rawData) {
+            const routes = {};
+            rawData.forEach(row => {
+                // PapaParse কলামের নাম যেমন আছে তেমনই রাখে
+                // কেস সেনসিটিভ সমস্যা এড়াতে আমরা সব চেক করব
+                const from = row.From || row.from;
+                const to = row.To || row.to;
+                
+                if(!from || !to) return;
 
-            if (!input) {
-                alert("Please enter a roll number.");
+                const key = `${from.trim()}-${to.trim()}`;
+                
+                if (!routes[key]) {
+                    routes[key] = {
+                        from: from.trim(),
+                        to: to.trim(),
+                        summary: row.Summary || row.summary || "",
+                        time: row.Time || row.time || "",
+                        methods: {},
+                        tips: (row.Tips || row.tips || "").split('|').filter(t => t && t.trim() !== "" && t !== "-")
+                    };
+                }
+                
+                const methodTitle = row.MethodTitle || row.methodtitle || "অন্যান্য";
+                if (!routes[key].methods[methodTitle]) {
+                    routes[key].methods[methodTitle] = {
+                        title: methodTitle,
+                        icon: (row.MethodIcon || row.methodicon || "bus").toLowerCase(),
+                        steps: []
+                    };
+                }
+                
+                routes[key].methods[methodTitle].steps.push({
+                    label: row.StepLabel || row.steplabel || "ধাপ",
+                    text: row.StepText || row.steptext || ""
+                });
+            });
+            return Object.values(routes).map(r => ({ ...r, methods: Object.values(r.methods) }));
+        }
+
+        function populateDropdowns() {
+            const fromSelect = document.getElementById('fromSelect');
+            const toSelect = document.getElementById('toSelect');
+            
+            fromSelect.innerHTML = '<option value="">লোকেশন বাছাই করুন</option>';
+            toSelect.innerHTML = '<option value="">পরীক্ষার কেন্দ্র বাছাই করুন</option>';
+
+            const uniqueFrom = [...new Set(routesData.map(r => r.from))].sort();
+            const uniqueTo = [...new Set(routesData.map(r => r.to))].sort();
+
+            uniqueFrom.forEach(loc => {
+                if(loc) {
+                    const opt = document.createElement('option');
+                    opt.value = loc;
+                    opt.textContent = loc;
+                    fromSelect.appendChild(opt);
+                }
+            });
+
+            uniqueTo.forEach(loc => {
+                if(loc) {
+                    const opt = document.createElement('option');
+                    opt.value = loc;
+                    opt.textContent = loc;
+                    toSelect.appendChild(opt);
+                }
+            });
+        }
+
+        function setupEventListeners() {
+            const fromSelect = document.getElementById('fromSelect');
+            const toSelect = document.getElementById('toSelect');
+            const btn = document.getElementById('searchBtn');
+
+            function updateBtn() {
+                if (fromSelect.value && toSelect.value) {
+                    btn.disabled = false;
+                    btn.className = "w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 transition-all active:scale-95 bg-emerald-600 hover:bg-emerald-700 shadow-lg cursor-pointer";
+                } else {
+                    btn.disabled = true;
+                    btn.className = "w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 transition-all active:scale-95 bg-slate-200 text-slate-400 cursor-not-allowed";
+                }
+            }
+            fromSelect.addEventListener('change', updateBtn);
+            toSelect.addEventListener('change', updateBtn);
+        }
+
+        function searchRoute() {
+            const fromVal = document.getElementById('fromSelect').value;
+            const toVal = document.getElementById('toSelect').value;
+            const container = document.getElementById('resultContainer');
+            
+            const result = routesData.find(r => r.from === fromVal && r.to === toVal);
+            container.innerHTML = '';
+            container.classList.remove('hidden');
+
+            if (!result) {
+                container.innerHTML = `<div class="bg-red-50 p-6 rounded-xl text-center text-red-600 font-bold border border-red-200 fade-in">দুঃখিত, কোনো তথ্য পাওয়া যায়নি!</div>`;
                 return;
             }
 
-            // Find match
-            const match = studentData.find(s => s.roll === input);
+            const getIcon = (t) => t.includes('train') ? '<i class="fa-solid fa-train"></i>' : (t.includes('car') ? '<i class="fa-solid fa-car"></i>' : '<i class="fa-solid fa-bus"></i>');
 
-            resultArea.style.display = 'block';
+            let html = `
+                <div class="slide-up space-y-6">
+                    <div class="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white p-6 rounded-2xl shadow-xl relative overflow-hidden">
+                        <div class="relative z-10">
+                            <h3 class="text-xs font-bold uppercase mb-2 opacity-80">সারসংক্ষেপ</h3>
+                            <p class="font-medium text-lg mb-4 leading-snug">${result.summary}</p>
+                            <div class="inline-flex items-center gap-2 bg-black/20 px-3 py-1 rounded-lg text-sm border border-white/10">
+                                <i class="fa-regular fa-clock text-emerald-200"></i> ${result.time}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="flex justify-between px-1"><h4 class="font-bold text-slate-700">যাতায়াতের উপায়</h4><span class="text-xs bg-slate-200 px-2 py-1 rounded font-bold text-slate-600">${result.methods.length}টি অপশন</span></div>
+            `;
 
-            if (match) {
-                resultArea.innerHTML = `
-                    <div class="result-card success">
-                        <span class="badge">Selected</span>
-                        <div class="bank-name">${match.bank}</div>
-                        <div class="roll-no">Roll: <strong>${match.roll}</strong></div>
-                    </div>
+            result.methods.forEach(method => {
+                html += `
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 group hover:border-emerald-200 transition-colors">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 text-lg group-hover:bg-emerald-100 transition-colors">${getIcon(method.icon)}</div>
+                            <h5 class="font-bold text-slate-800 text-lg">${method.title}</h5>
+                        </div>
+                        <div class="space-y-4 pl-6 border-l-2 border-slate-100 ml-2 relative">
                 `;
-            } else {
-                resultArea.innerHTML = `
-                    <div class="result-card failure">
-                        <span class="badge">Not Found</span>
-                        <div class="bank-name">We couldn't find a match</div>
-                        <div class="roll-no">Roll: <strong>${input}</strong></div>
-                        <div style="font-size:0.8rem; margin-top:5px; opacity:0.7;">Please check your input or try again later.</div>
-                    </div>
-                `;
+                method.steps.forEach(step => {
+                    html += `
+                        <div class="relative pl-6">
+                            <div class="absolute -left-[11px] top-1.5 w-3.5 h-3.5 rounded-full bg-white border-[3px] border-emerald-400 z-10"></div>
+                            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">${step.label}</p>
+                            <p class="text-sm text-slate-700 leading-relaxed">${step.text}</p>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+            });
+
+            if(result.tips.length > 0) {
+                html += `<div class="bg-amber-50 p-6 rounded-2xl border border-amber-100 relative"><h5 class="font-bold text-amber-800 mb-3 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation"></i> পরামর্শ</h5><ul class="space-y-2 text-sm text-slate-700">`;
+                result.tips.forEach(t => html += `<li class="flex gap-3"><div class="mt-1.5 w-1.5 h-1.5 bg-amber-500 rounded-full shrink-0"></div><span class="leading-relaxed">${t}</span></li>`);
+                html += `</ul></div>`;
             }
-        }
 
-        // Enable "Enter" key
-        document.getElementById('rollInput').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') searchRoll();
-        });
+            html += `<button onclick="location.reload()" class="w-full py-4 bg-white border-2 border-slate-100 rounded-xl font-bold text-slate-500 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-sm">নতুন রুট খুঁজুন</button></div>`;
+            
+            container.innerHTML = html;
+        }
     </script>
 </body>
 </html>
+
+
