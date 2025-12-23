@@ -1,5 +1,5 @@
 // =================================================================
-// ১. কনফিগারেশন (শুধুমাত্র লোকাল ফাইল)
+// ১. কনফিগারেশন
 // =================================================================
 const LOCAL_FILE = "result.csv"; 
 
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =================================================================
-// ২. ডেটা লোডিং সিস্টেম
+// ২. ডেটা লোডিং সিস্টেম (অ্যাডভান্সড ডিবাগিং সহ)
 // =================================================================
 async function initApp() {
     const badge = document.getElementById('connectionBadge');
@@ -20,100 +20,130 @@ async function initApp() {
     const fromSelect = document.getElementById('fromSelect');
     const toSelect = document.getElementById('toSelect');
 
-    // ক্যাশ এড়ানোর জন্য টাইমস্ট্যাম্প
     const timestamp = Date.now();
 
     try {
-        loaderText.innerText = "ডেটাবেস লোড হচ্ছে...";
+        console.log("Starting data load...");
+        loaderText.innerText = "লোকাল ফাইল খোঁজা হচ্ছে...";
         
-        // ১. result.csv ফেচ করা
+        // ১. ফাইল ফেচ করা
         const response = await fetch(`${LOCAL_FILE}?t=${timestamp}`);
         
+        console.log("Fetch Status:", response.status);
+
         if (!response.ok) {
-            throw new Error(`File not found (${response.status})`);
+            throw new Error(`ফাইল পাওয়া যায়নি (Status: ${response.status})। নিশ্চিত করুন 'result.csv' সঠিক ফোল্ডারে আছে।`);
         }
         
-        const csvText = await response.text();
+        let csvText = await response.text();
+        console.log("Raw CSV Data Length:", csvText.length);
 
-        // ২. ডেটা ভ্যালিডেশন
+        // ২. ডেটা ভ্যালিডেশন এবং ক্লিনিং
         if (!csvText || csvText.length < 10) {
-            throw new Error("CSV file is empty or corrupted");
+            throw new Error("CSV ফাইলটি খালি বা সমস্যাযুক্ত।");
         }
 
         // ৩. পার্স করা
         Papa.parse(csvText, {
             header: true,
             skipEmptyLines: true,
+            // BOM (Byte Order Mark) সমস্যা সমাধান করে
+            beforeFirstChunk: function(chunk) {
+                return chunk.charCodeAt(0) === 0xFEFF ? chunk.slice(1) : chunk;
+            },
             complete: function(results) {
+                console.log("Parsed Rows:", results.data.length);
+                
                 if (results.data && results.data.length > 0) {
+                    // কলাম হেডার চেক
+                    const firstRow = results.data[0];
+                    console.log("First Row Keys:", Object.keys(firstRow));
+
                     // সফল হলে প্রসেস শুরু
                     routesData = processData(results.data);
+                    
+                    if(routesData.length === 0) {
+                        showError(loaderText, badge, "CSV ফাইলে সঠিক কলাম (From, To) পাওয়া যায়নি।");
+                        return;
+                    }
+
                     populateDropdowns();
                     
-                    // UI আপডেট
+                    // UI আপডেট (সফল)
                     loaderOverlay.classList.add('hidden');
                     badge.classList.remove('hidden');
                     badge.innerText = "● অনলাইন";
                     badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200";
                 } else {
-                    throw new Error("No readable data found in CSV");
+                    showError(loaderText, badge, "CSV ফাইলে কোনো রিডেবল ডেটা পাওয়া যায়নি।");
                 }
             },
             error: function(err) {
-                throw err;
+                throw new Error("CSV পার্সিং এরর: " + err.message);
             }
         });
 
     } catch (err) {
-        console.error("Error loading data:", err);
-        
-        // এরর দেখালে UI আপডেট
-        loaderText.innerHTML = `<span class="text-red-500"><i class="fa-solid fa-triangle-exclamation"></i> ডেটা লোড ব্যর্থ হয়েছে!</span><br><span class="text-[10px] text-slate-400">কারণ: ${err.message}</span>`;
-        badge.classList.remove('hidden');
-        badge.innerText = "● এরর";
-        badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-red-100 text-red-700 border-red-200";
+        console.error("Critical Error:", err);
+        showError(loaderText, badge, err.message);
         
         fromSelect.innerHTML = '<option>ডেটাবেস এরর</option>';
         toSelect.innerHTML = '<option>ডেটাবেস এরর</option>';
     }
 }
 
+function showError(loaderText, badge, msg) {
+    loaderText.innerHTML = `<div class="text-red-500 font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> সমস্যা হয়েছে!</div><div class="text-xs text-slate-500 max-w-xs text-center">${msg}</div>`;
+    badge.classList.remove('hidden');
+    badge.innerText = "● এরর";
+    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-red-100 text-red-700 border-red-200";
+}
+
 // =================================================================
-// ৩. ডেটা প্রসেসিং লজিক
+// ৩. ডেটা প্রসেসিং লজিক (Case Insensitive)
 // =================================================================
 function processData(rawData) {
     const routes = {};
-    rawData.forEach(row => {
-        const from = row.From || row.from;
-        const to = row.To || row.to;
-        
-        if (!from || !to) return;
+    rawData.forEach((row, index) => {
+        // কলাম নাম ছোট/বড় হাতের অক্ষর হ্যান্ডেল করা এবং স্পেস রিমুভ করা
+        const getVal = (key) => {
+            const foundKey = Object.keys(row).find(k => k.trim().toLowerCase() === key.toLowerCase());
+            return foundKey ? row[foundKey].trim() : null;
+        };
 
-        const key = `${from.trim()}-${to.trim()}`;
+        const from = getVal('from');
+        const to = getVal('to');
+        
+        if (!from || !to) {
+            // console.warn(`Skipping Row ${index + 1}: Missing 'From' or 'To'`);
+            return;
+        }
+
+        const key = `${from}-${to}`;
 
         if (!routes[key]) {
             routes[key] = {
-                from: from.trim(),
-                to: to.trim(),
-                summary: row.Summary || row.summary || "",
-                time: row.Time || row.time || "",
+                from: from,
+                to: to,
+                summary: getVal('summary') || "",
+                time: getVal('time') || "",
                 methods: {},
-                tips: (row.Tips || row.tips || "").split('|').filter(t => t && t.trim() !== "" && t !== "-")
+                tips: (getVal('tips') || "").split('|').filter(t => t && t.trim() !== "" && t !== "-")
             };
         }
 
-        const methodTitle = row.MethodTitle || row.methodtitle || "অন্যান্য";
+        const methodTitle = getVal('methodtitle') || "অন্যান্য";
         if (!routes[key].methods[methodTitle]) {
             routes[key].methods[methodTitle] = {
                 title: methodTitle,
-                icon: (row.MethodIcon || row.methodicon || "bus").toLowerCase(),
+                icon: (getVal('methodicon') || "bus").toLowerCase(),
                 steps: []
             };
         }
 
         routes[key].methods[methodTitle].steps.push({
-            label: row.StepLabel || row.steplabel || "ধাপ",
-            text: row.StepText || row.steptext || ""
+            label: getVal('steplabel') || "ধাপ",
+            text: getVal('steptext') || ""
         });
     });
     return Object.values(routes).map(r => ({ ...r, methods: Object.values(r.methods) }));
