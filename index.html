@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Route Finder (Smart Loader)</title>
+    <title>Exam Route Finder (Hybrid)</title>
     
     <!-- ফন্ট ও ডিজাইন -->
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- CSV পার্সার লাইব্রেরি (PapaParse) -->
+    <!-- CSV পার্সার -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
     <style>
@@ -28,17 +28,17 @@
         <div class="max-w-md mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex items-center gap-2 text-emerald-700">
                 <i class="fa-solid fa-location-arrow text-xl"></i>
-                <h1 class="font-bold text-lg tracking-tight">ExamCommute <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full ml-1">Live</span></h1>
+                <h1 class="font-bold text-lg tracking-tight">ExamCommute</h1>
             </div>
-            <div class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-full border border-slate-200">ঢাকা</div>
+            <!-- কানেকশন ইন্ডিকেটর -->
+            <div id="connectionStatus" class="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-full border border-slate-200">
+                অপেক্ষা করুন...
+            </div>
         </div>
     </header>
 
     <main class="max-w-md mx-auto p-4 pb-20 space-y-6 flex-grow w-full">
         
-        <!-- স্ট্যাটাস মেসেজ -->
-        <div id="statusMessage" class="hidden text-center p-4 text-sm rounded-lg mb-4 border shadow-sm"></div>
-
         <!-- সার্চ বক্স -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">রুট অনুসন্ধান</h2>
@@ -48,7 +48,7 @@
                     <label class="text-xs font-bold text-slate-500 ml-1 mb-1.5 block">কোথা থেকে?</label>
                     <div class="absolute left-3 top-9 text-emerald-500 z-10 pointer-events-none"><i class="fa-solid fa-map-pin"></i></div>
                     <select id="fromSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100">
-                        <option value="">অপেক্ষা করুন...</option>
+                        <option value="">লোডিং...</option>
                     </select>
                     <div class="absolute right-4 top-10 pointer-events-none text-slate-400"><i class="fa-solid fa-chevron-down text-xs"></i></div>
                 </div>
@@ -57,7 +57,7 @@
                     <label class="text-xs font-bold text-slate-500 ml-1 mb-1.5 block">কোথায় যাবেন?</label>
                     <div class="absolute left-3 top-9 text-red-500 z-10 pointer-events-none"><i class="fa-solid fa-school"></i></div>
                     <select id="toSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100">
-                        <option value="">অপেক্ষা করুন...</option>
+                        <option value="">লোডিং...</option>
                     </select>
                     <div class="absolute right-4 top-10 pointer-events-none text-slate-400"><i class="fa-solid fa-chevron-down text-xs"></i></div>
                 </div>
@@ -68,13 +68,6 @@
             </div>
         </div>
 
-        <!-- লোডিং স্পিনার -->
-        <div id="loading" class="text-center py-4">
-            <i class="fa-solid fa-circle-notch fa-spin text-emerald-600 text-2xl"></i>
-            <p class="text-xs text-slate-400 mt-2" id="loadingText">সার্ভারের সাথে সংযোগ স্থাপন করা হচ্ছে...</p>
-        </div>
-
-        <!-- ফলাফল কন্টেইনার -->
         <div id="resultContainer" class="hidden"></div>
     </main>
 
@@ -83,19 +76,53 @@
     </footer>
 
     <script>
-        // =================================================================
-        // আপনার গুগল শিট লিংক
-        // =================================================================
+        // ১. গুগল শিট লিংক
         const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUzMNl_VaFOyRmeSuR2_tz7IbyodLC1hahyEI2q2-gn5xbgUixgPmOCdNpcdyOnglVGzygslu3g_yo/pub?output=csv"; 
+        
+        // ২. ব্যাকআপ ডেটা (যদি ইন্টারনেট না থাকে বা লোড না হয় তবে এটি কাজ করবে)
+        const FALLBACK_DATA = `From,To,Summary,Time,MethodTitle,MethodIcon,StepLabel,StepText,Tips
+মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,বাসে উঠুন,মিরপুর ১০ ১১ বা কালশী থেকে 'অছিম পরিবহন' বা 'আলিফ পরিবহন'-এ উঠুন।,যাওয়ার আগে নিশ্চিত হয়ে নিন আপনি স্কুল ভবন (শান্তিবাগ) নাকি কলেজ ভবনে (মাতুয়াইল) যাবেন।|ডেমরা রোডে মাঝে মাঝে জ্যাম থাকে।
+মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,নামার স্থান,ডেমরা স্টাফ কোয়ার্টার।,-
+মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,পরবর্তী ধাপ,সেখান থেকে রিকশা বা ইজিবাইকে করে সরাসরি স্কুলে পৌঁছানো যায়।,-
+মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,২. টেকনিক্যাল বা গাবতলী হয়ে,bus,রুট,মিরপুর থেকে টেকনিক্যাল মোড়ে গিয়ে সাভার-কাঁচপুর রুটের বাসে উঠতে পারেন।,-
+মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,২. টেকনিক্যাল বা গাবতলী হয়ে,bus,বাসের নাম,ঠিকানা মৌমিতা বা নীলাচল।,-
+মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,২. টেকনিক্যাল বা গাবতলী হয়ে,bus,নামার স্থান,তামিরুল মিল্লাত মহিলা মাদ্রাসার সামনে বা মাতুয়াইল।,-
+মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,৩. মেট্রোরেল ব্যবহার করে,train,ধাপ ১,মেট্রোরেলে করে মতিঝিল বা গুলিস্তান চলে আসুন।,-
+মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,৩. মেট্রোরেল ব্যবহার করে,train,ধাপ ২,গুলিস্তান থেকে গ্লোরি বা গাউছিয়া এক্সপ্রেস বাসে করে কোনাপাড়া নামুন।,-
+উত্তরা,নটর ডেম কলেজ (মতিঝিল),মেট্রোরেল ব্যবহার করা সবচেয়ে সুবিধাজনক।,১ ঘণ্টা ১০ মিনিট,মেট্রোরেল রুট,train,স্টেশন,উত্তরা নর্থ বা সাউথ স্টেশন থেকে মতিঝিলগামী ট্রেনে উঠুন।,সকাল ৮টা-৯টার দিকে মেট্রোতে ভিড় থাকে।
+উত্তরা,নটর ডেম কলেজ (মতিঝিল),মেট্রোরেল ব্যবহার করা সবচেয়ে সুবিধাজনক।,১ ঘণ্টা ১০ মিনিট,মেট্রোরেল রুট,train,গন্তব্য,মতিঝিল স্টেশনে নেমে ১০ মিনিট হাঁটলেই কলেজ।,-
+মিরপুর,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),রায়েরবাগ বাস স্ট্যান্ড হয়ে যাওয়া সবচেয়ে দ্রুত ও সুবিধাজনক।,১ ঘণ্টা ৩০ মিনিট - ২ ঘণ্টা,১. মিরপুর ১০/১১ বা কালশী হয়ে,bus,বাসে উঠুন,মিরপুর ১০ ১১ বা কালশী থেকে 'শিখর' বা 'হিমাচল (বিআরটিসি)' বাসে উঠুন।,বাসের হেল্পারকে আগেই 'রায়েরবাগ' নামিয়ে দিতে বলবেন।|সকালে ডেমরা রোডে জ্যাম থাকতে পারে।
+মিরপুর,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),রায়েরবাগ বাস স্ট্যান্ড হয়ে যাওয়া সবচেয়ে দ্রুত ও সুবিধাজনক।,১ ঘণ্টা ৩০ মিনিট - ২ ঘণ্টা,১. মিরপুর ১০/১১ বা কালশী হয়ে,bus,নামার স্থান,যাত্রাবাড়ী ফ্লাইওভার পার হয়ে রায়েরবাগ বাস স্ট্যান্ডে নামুন।,-
+মিরপুর,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),রায়েরবাগ বাস স্ট্যান্ড হয়ে যাওয়া সবচেয়ে দ্রুত ও সুবিধাজনক।,১ ঘণ্টা ৩০ মিনিট - ২ ঘণ্টা,১. মিরপুর ১০/১১ বা কালশী হয়ে,bus,পরবর্তী ধাপ,রায়েরবাগ থেকে ডেমরা রোডের মুখে গিয়ে অটো বা রিকশায় ৫-১০ মিনিটে কলেজ গেট।,-
+মিরপুর,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),রায়েরবাগ বাস স্ট্যান্ড হয়ে যাওয়া সবচেয়ে দ্রুত ও সুবিধাজনক।,১ ঘণ্টা ৩০ মিনিট - ২ ঘণ্টা,২. মিরপুর ১ বা টেকনিক্যাল হয়ে,bus,বাসের নাম,মিরপুর ১ বা টেকনিক্যাল থেকে 'ঠিকানা' বা 'মৌমিতা' বাসে উঠুন।,-
+মিরপুর,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),রায়েরবাগ বাস স্ট্যান্ড হয়ে যাওয়া সবচেয়ে দ্রুত ও সুবিধাজনক।,১ ঘণ্টা ৩০ মিনিট - ২ ঘণ্টা,২. মিরপুর ১ বা টেকনিক্যাল হয়ে,bus,গন্তব্য,রায়েরবাগ বাস স্ট্যান্ডে নামুন।,-
+মিরপুর,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),রায়েরবাগ বাস স্ট্যান্ড হয়ে যাওয়া সবচেয়ে দ্রুত ও সুবিধাজনক।,১ ঘণ্টা ৩০ মিনিট - ২ ঘণ্টা,৩. যাত্রাবাড়ী থেকে লেগুনা রুট,car,ধাপ ১,মিরপুর থেকে যেকোনো বাসে যাত্রাবাড়ী মোড় নামুন।,-
+মিরপুর,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),রায়েরবাগ বাস স্ট্যান্ড হয়ে যাওয়া সবচেয়ে দ্রুত ও সুবিধাজনক।,১ ঘণ্টা ৩০ মিনিট - ২ ঘণ্টা,৩. যাত্রাবাড়ী থেকে লেগুনা রুট,car,ধাপ ২,যাত্রাবাড়ী থেকে ডেমরাগামী লেগুনায় উঠে 'মোল্লা কলেজ' এর সামনে নামুন।,-
+মিরপুর,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),রায়েরবাগ বাস স্ট্যান্ড হয়ে যাওয়া সবচেয়ে দ্রুত ও সুবিধাজনক।,১ ঘণ্টা ৩০ মিনিট - ২ ঘণ্টা,৪. মেট্রোরেল ব্যবহার করে,train,স্টেশন,মিরপুর থেকে মেট্রোরেলে মতিঝিল স্টেশনে নামুন।,-
+মিরপুর,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),রায়েরবাগ বাস স্ট্যান্ড হয়ে যাওয়া সবচেয়ে দ্রুত ও সুবিধাজনক।,১ ঘণ্টা ৩০ মিনিট - ২ ঘণ্টা,৪. মেট্রোরেল ব্যবহার করে,train,পরবর্তী ধাপ,মতিঝিল থেকে বাসে করে রায়েরবাগ হয়ে রিকশা বা অটোতে কলেজ।,-
+উত্তরা,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),আব্দুল্লাহপুর থেকে সরাসরি বাসে বা মেট্রোরেলে দ্রুত পৌঁছানো সম্ভব।,২ ঘণ্টা - ২ ঘণ্টা ৩০ মিনিট,১. আব্দুল্লাহপুর থেকে সরাসরি বাস,bus,বাসে উঠুন,আব্দুল্লাহপুর বা হাউজ বিল্ডিং থেকে 'অনাবিল' বা 'রাইদা' বাসে উঠুন।,বাসে ওঠার সময় ডেমরা বা মাতুয়াইল যাওয়ার কথা নিশ্চিত করে নিন।|রাস্তায় যানজট থাকলে সময় বেশি লাগতে পারে।
+উত্তরা,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),আব্দুল্লাহপুর থেকে সরাসরি বাসে বা মেট্রোরেলে দ্রুত পৌঁছানো সম্ভব।,২ ঘণ্টা - ২ ঘণ্টা ৩০ মিনিট,১. আব্দুল্লাহপুর থেকে সরাসরি বাস,bus,নামার স্থান,যাত্রাবাড়ী ফ্লাইওভার পার হয়ে 'রায়েরবাগ' অথবা 'মাতুয়াইল' স্ট্যান্ডে নামুন।,-
+উত্তরা,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),আব্দুল্লাহপুর থেকে সরাসরি বাসে বা মেট্রোরেলে দ্রুত পৌঁছানো সম্ভব।,২ ঘণ্টা - ২ ঘণ্টা ৩০ মিনিট,১. আব্দুল্লাহপুর থেকে সরাসরি বাস,bus,পরবর্তী ধাপ,স্ট্যান্ড থেকে রিকশা বা ইজিবাইকে ৫-১০ মিনিটে স্কুল/কলেজ গেটে পৌঁছানো যায়।,-
+উত্তরা,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),আব্দুল্লাহপুর থেকে সরাসরি বাসে বা মেট্রোরেলে দ্রুত পৌঁছানো সম্ভব।,২ ঘণ্টা - ২ ঘণ্টা ৩০ মিনিট,২. মেট্রোরেল রুট,train,স্টেশন,উত্তরা নর্থ বা সাউথ স্টেশন থেকে মেট্রোরেলে মতিঝিল স্টেশনে নামুন।,-
+উত্তরা,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),আব্দুল্লাহপুর থেকে সরাসরি বাসে বা মেট্রোরেলে দ্রুত পৌঁছানো সম্ভব।,২ ঘণ্টা - ২ ঘণ্টা ৩০ মিনিট,২. মেট্রোরেল রুট,train,বাস সংযোগ,মতিঝিল থেকে বাসে (যেমন: ট্রান্সিলভা) করে রায়েরবাগ বা মাতুয়াইল নামুন।,-
+উত্তরা,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),আব্দুল্লাহপুর থেকে সরাসরি বাসে বা মেট্রোরেলে দ্রুত পৌঁছানো সম্ভব।,২ ঘণ্টা - ২ ঘণ্টা ৩০ মিনিট,৩. বিআরটিসি (এসি বাস),bus,বাসের নাম,উত্তরা থেকে বিআরটিসি এসি বাসে উঠে সরাসরি যাত্রাবাড়ী বা রায়েরবাগ নামুন।,-
+উত্তরা,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),আব্দুল্লাহপুর থেকে সরাসরি বাসে বা মেট্রোরেলে দ্রুত পৌঁছানো সম্ভব।,২ ঘণ্টা - ২ ঘণ্টা ৩০ মিনিট,৩. বিআরটিসি (এসি বাস),bus,শেষ ধাপ,রায়েরবাগ থেকে অটো বা রিকশা নিয়ে কলেজে প্রবেশ করুন।,-
+উত্তরা,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),আব্দুল্লাহপুর থেকে বাসে অথবা মেট্রোরেল ব্যবহার করে যাওয়া সবচেয়ে সুবিধাজনক।,২ ঘণ্টা - ২ ঘণ্টা ২০ মিনিট,১. আব্দুল্লাহপুর থেকে সরাসরি বাস,bus,বাসে উঠুন,আব্দুল্লাহপুর বা হাউজ বিল্ডিং থেকে 'অনাবিল' 'রাইদা' বা 'প্রচেষ্টা' বাসে উঠুন।,সবচেয়ে ভালো হয় 'রায়েরবাগ' স্ট্যান্ডে নামলে। এখান থেকে কলেজটি খুব কাছে।|সকালে ডেমরা রুটে যানজট থাকে।
+উত্তরা,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),আব্দুল্লাহপুর থেকে বাসে অথবা মেট্রোরেল ব্যবহার করে যাওয়া সবচেয়ে সুবিধাজনক।,২ ঘণ্টা - ২ ঘণ্টা ২০ মিনিট,১. আব্দুল্লাহপুর থেকে সরাসরি বাস,bus,নামার স্থান,যাত্রাবাড়ী পার হয়ে 'রায়েরবাগ' বাস স্ট্যান্ডে নামুন।,-
+উত্তরা,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),আব্দুল্লাহপুর থেকে বাসে অথবা মেট্রোরেল ব্যবহার করে যাওয়া সবচেয়ে সুবিধাজনক।,২ ঘণ্টা - ২ ঘণ্টা ২০ মিনিট,১. আব্দুল্লাহপুর থেকে সরাসরি বাস,bus,পরবর্তী ধাপ,রায়েরবাগ ফ্লাইওভারের নিচ থেকে অটো-রিকশায় ৫-১০ মিনিটে কলেজের গেটে পৌঁছানো যায়।,-
+উত্তরা,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),আব্দুল্লাহপুর থেকে বাসে অথবা মেট্রোরেল ব্যবহার করে যাওয়া সবচেয়ে সুবিধাজনক।,২ ঘণ্টা - ২ ঘণ্টা ২০ মিনিট,২. মেট্রোরেল ও বাস রুট,train,স্টেশন,উত্তরা নর্থ বা সাউথ স্টেশন থেকে মেট্রোরেলে সরাসরি মতিঝিল নামুন।,-
+উত্তরা,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),আব্দুল্লাহপুর থেকে বাসে অথবা মেট্রোরেল ব্যবহার করে যাওয়া সবচেয়ে সুবিধাজনক।,২ ঘণ্টা - ২ ঘণ্টা ২০ মিনিট,২. মেট্রোরেল ও বাস রুট,train,বাস সংযোগ,মতিঝিল থেকে 'ট্রান্সিলভা' বা 'শিকড়' বাসে উঠে রায়েরবাগ নামুন।,-
+উত্তরা,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),আব্দুল্লাহপুর থেকে বাসে অথবা মেট্রোরেল ব্যবহার করে যাওয়া সবচেয়ে সুবিধাজনক।,২ ঘণ্টা - ২ ঘণ্টা ২০ মিনিট,৩. বিআরটিসি (এসি বাস),bus,রুট,উত্তরা থেকে বিআরটিসি এসি বাসে সরাসরি যাত্রাবাড়ী বা রায়েরবাগ নামুন।,-
+উত্তরা,ড. মাহাবুবুর রহমান মোল্লা কলেজ (DMRC),আব্দুল্লাহপুর থেকে বাসে অথবা মেট্রোরেল ব্যবহার করে যাওয়া সবচেয়ে সুবিধাজনক।,২ ঘণ্টা - ২ ঘণ্টা ২০ মিনিট,৩. বিআরটিসি (এসি বাস),bus,শেষ ধাপ,রায়েরবাগ বাস স্ট্যান্ড থেকে অটোতে করে কলেজে চলে যান।,-`;
 
-        // একাধিক প্রক্সি লিস্ট (একটির পর একটি চেষ্টা করবে)
+        let routesData = [];
+
+        // প্রক্সি লিস্ট
         const PROXIES = [
             'https://corsproxy.io/?',
             'https://api.allorigins.win/raw?url=',
-            '' // শেষ চেষ্টা হিসেবে ডাইরেক্ট লিংক
+            '' // ডাইরেক্ট
         ];
-
-        let routesData = [];
 
         document.addEventListener('DOMContentLoaded', () => {
             initDataLoad();
@@ -103,89 +130,54 @@
         });
 
         async function initDataLoad() {
-            const loadingText = document.getElementById('loadingText');
+            const statusBadge = document.getElementById('connectionStatus');
             
-            // ধাপে ধাপে ডেটা লোড করার চেষ্টা
+            // প্রথমে লাইভ ডেটা আনার চেষ্টা
             for (let i = 0; i < PROXIES.length; i++) {
-                const proxy = PROXIES[i];
-                const finalUrl = proxy + encodeURIComponent(SHEET_URL);
-                
-                // ডাইরেক্ট লিংকের জন্য এনকোড দরকার নেই
-                const fetchUrl = proxy === '' ? SHEET_URL : proxy + SHEET_URL; 
-
                 try {
-                    loadingText.innerText = `চেষ্টা করা হচ্ছে (সার্ভার ${i + 1})...`;
-                    console.log(`Attempting load via: ${fetchUrl}`);
-
+                    const fetchUrl = (PROXIES[i] === '' ? SHEET_URL : PROXIES[i] + encodeURIComponent(SHEET_URL)) + "&t=" + Date.now();
                     const response = await fetch(fetchUrl);
-                    if (!response.ok) throw new Error("HTTP Error");
+                    if (!response.ok) throw new Error("Failed");
                     
                     const csvText = await response.text();
-                    
-                    // PapaParse দিয়ে নির্ভুলভাবে ডেটা প্রসেস করা
-                    Papa.parse(csvText, {
-                        header: true,
-                        skipEmptyLines: true,
-                        complete: function(results) {
-                            if (results.data && results.data.length > 0) {
-                                console.log("Data loaded successfully via Proxy " + i);
-                                routesData = processData(results.data);
-                                finishLoading(true);
-                            } else {
-                                throw new Error("Parsed data is empty");
-                            }
-                        },
-                        error: function(err) {
-                            throw err;
-                        }
-                    });
-                    
-                    return; // সফল হলে লুপ ব্রেক করে বের হয়ে যাবে
-
-                } catch (err) {
-                    console.error(`Failed on attempt ${i}:`, err);
-                    if (i === PROXIES.length - 1) {
-                        // সব চেষ্টা ব্যর্থ হলে
-                        finishLoading(false, err.message);
+                    if(parseAndLoad(csvText)) {
+                        statusBadge.innerText = "● লাইভ ডেটা";
+                        statusBadge.className = "text-xs font-semibold text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full border border-emerald-200";
+                        return; // সফল হলে বেরিয়ে যাবে
                     }
+                } catch (e) {
+                    console.warn(`Proxy ${i} failed.`);
                 }
             }
+
+            // সব চেষ্টা ব্যর্থ হলে ব্যাকআপ ডেটা ব্যবহার করবে
+            console.log("Using Fallback Data");
+            statusBadge.innerText = "● অফলাইন মোড";
+            statusBadge.className = "text-xs font-semibold text-amber-600 bg-amber-100 px-2 py-1 rounded-full border border-amber-200";
+            parseAndLoad(FALLBACK_DATA);
         }
 
-        function finishLoading(success, msg) {
-            const loadingEl = document.getElementById('loading');
-            const statusEl = document.getElementById('statusMessage');
-            const fromSelect = document.getElementById('fromSelect');
-            const toSelect = document.getElementById('toSelect');
-
-            loadingEl.classList.add('hidden');
-
-            if (success) {
-                populateDropdowns();
-            } else {
-                statusEl.innerHTML = `
-                    <div class="text-red-600 font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> ডেটা লোড ব্যর্থ হয়েছে!</div>
-                    <div class="text-xs text-red-500">
-                        সম্ভাব্য কারণ: ইন্টারনেট কানেকশন নেই অথবা গুগল শিট লিংকটি সঠিক নয়।<br>
-                        (Link: ${SHEET_URL.substring(0, 30)}...)
-                    </div>
-                `;
-                statusEl.classList.remove('hidden');
-                statusEl.classList.add('bg-red-50', 'border-red-200');
-                
-                fromSelect.innerHTML = '<option>কানেকশন এরর</option>';
-                toSelect.innerHTML = '<option>কানেকশন এরর</option>';
-            }
+        function parseAndLoad(csv) {
+            let success = false;
+            Papa.parse(csv, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.data && results.data.length > 0) {
+                        routesData = processData(results.data);
+                        populateDropdowns();
+                        success = true;
+                    }
+                }
+            });
+            return success;
         }
 
         function processData(rawData) {
             const routes = {};
             rawData.forEach(row => {
-                // PapaParse কলামের নাম যেমন আছে তেমনই রাখে
-                // কেস সেনসিটিভ সমস্যা এড়াতে আমরা সব চেক করব
                 const from = row.From || row.from;
                 const to = row.To || row.to;
-                
                 if(!from || !to) return;
 
                 const key = `${from.trim()}-${to.trim()}`;
@@ -229,21 +221,17 @@
             const uniqueTo = [...new Set(routesData.map(r => r.to))].sort();
 
             uniqueFrom.forEach(loc => {
-                if(loc) {
-                    const opt = document.createElement('option');
-                    opt.value = loc;
-                    opt.textContent = loc;
-                    fromSelect.appendChild(opt);
-                }
+                const opt = document.createElement('option');
+                opt.value = loc;
+                opt.textContent = loc;
+                fromSelect.appendChild(opt);
             });
 
             uniqueTo.forEach(loc => {
-                if(loc) {
-                    const opt = document.createElement('option');
-                    opt.value = loc;
-                    opt.textContent = loc;
-                    toSelect.appendChild(opt);
-                }
+                const opt = document.createElement('option');
+                opt.value = loc;
+                opt.textContent = loc;
+                toSelect.appendChild(opt);
             });
         }
 
