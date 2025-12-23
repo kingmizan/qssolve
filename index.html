@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exam Route Finder</title>
+    <title>Exam Route Finder (Live)</title>
     
-    <!-- ফন্ট ও ডিজাইন -->
+    <!-- ফন্ট ও আইকন -->
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- টেইলউইন্ড সিএসএস (ডিজাইনের জন্য) -->
+    <!-- টেইলউইন্ড সিএসএস -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- PapaParse (CSV রিডার) -->
@@ -27,24 +27,30 @@
                 <i class="fa-solid fa-location-arrow text-xl"></i>
                 <h1 class="font-bold text-lg tracking-tight">ExamCommute</h1>
             </div>
-            <div class="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">
-                ● অফলাইন মোড
-            </div>
+            <!-- কানেকশন ব্যাজ -->
+            <div id="connectionBadge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full border"></div>
         </div>
     </header>
 
     <main class="max-w-md mx-auto p-4 pb-20 space-y-6 flex-grow w-full">
         
         <!-- সার্চ বক্স -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+            
+            <!-- লোডার ওভারলে -->
+            <div id="loaderOverlay" class="absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center">
+                <i class="fa-solid fa-circle-notch fa-spin text-emerald-600 text-3xl mb-2"></i>
+                <p class="text-xs text-slate-500 font-semibold animate-pulse" id="loaderText">সার্ভার কানেক্ট করা হচ্ছে...</p>
+            </div>
+
             <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">রুট অনুসন্ধান</h2>
             
             <div class="space-y-5">
                 <div class="relative group">
                     <label class="text-xs font-bold text-slate-500 ml-1 mb-1.5 block">কোথা থেকে?</label>
                     <div class="absolute left-3 top-9 text-emerald-500 z-10 pointer-events-none"><i class="fa-solid fa-map-pin"></i></div>
-                    <select id="fromSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100 cursor-pointer">
-                        <option value="">লোকেশন বাছাই করুন</option>
+                    <select id="fromSelect" disabled class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100 disabled:opacity-50 cursor-pointer">
+                        <option value="">অপেক্ষা করুন...</option>
                     </select>
                     <div class="absolute right-4 top-10 pointer-events-none text-slate-400"><i class="fa-solid fa-chevron-down text-xs"></i></div>
                 </div>
@@ -52,8 +58,8 @@
                 <div class="relative group">
                     <label class="text-xs font-bold text-slate-500 ml-1 mb-1.5 block">কোথায় যাবেন?</label>
                     <div class="absolute left-3 top-9 text-red-500 z-10 pointer-events-none"><i class="fa-solid fa-school"></i></div>
-                    <select id="toSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100 cursor-pointer">
-                        <option value="">পরীক্ষার কেন্দ্র বাছাই করুন</option>
+                    <select id="toSelect" disabled class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100 disabled:opacity-50 cursor-pointer">
+                        <option value="">অপেক্ষা করুন...</option>
                     </select>
                     <div class="absolute right-4 top-10 pointer-events-none text-slate-400"><i class="fa-solid fa-chevron-down text-xs"></i></div>
                 </div>
@@ -72,9 +78,7 @@
         <p>&copy; ২০২৫ স্টুডেন্ট হেল্পলাইন</p>
     </footer>
 
-    <!-- আমাদের কাস্টম জাভাস্ক্রিপ্ট -->
+    <!-- লজিক স্ক্রিপ্ট -->
     <script src="app.js"></script>
 </body>
 </html>
-
-
