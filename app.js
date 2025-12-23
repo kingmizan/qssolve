@@ -1,7 +1,9 @@
-// আপনার গুগল শিট লিংক
+// =================================================================
+// ১. কনফিগারেশন এবং ব্যাকআপ ডেটা
+// =================================================================
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUzMNl_VaFOyRmeSuR2_tz7IbyodLC1hahyEI2q2-gn5xbgUixgPmOCdNpcdyOnglVGzygslu3g_yo/pub?output=csv";
 
-// ব্যাকআপ ডেটা
+// ব্যাকআপ ডেটা (ইন্টারনেট না থাকলে বা লাইভ ডেটায় সমস্যা থাকলে এটি লোড হবে)
 const BACKUP_DATA = `From,To,Summary,Time,MethodTitle,MethodIcon,StepLabel,StepText,Tips
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,বাসে উঠুন,"মিরপুর ১০, ১১ বা কালশী থেকে 'অছিম পরিবহন' বা 'আলিফ পরিবহন'-এ উঠুন।",যাওয়ার আগে নিশ্চিত হয়ে নিন আপনি স্কুল ভবন (শান্তিবাগ) নাকি কলেজ ভবনে (মাতুয়াইল) যাবেন।|ডেমরা রোডে মাঝে মাঝে জ্যাম থাকে।
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,নামার স্থান,ডেমরা স্টাফ কোয়ার্টার।,-
@@ -45,80 +47,67 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =================================================================
-// শক্তিশালী ডেটা ফেচার (প্রক্সি ১ -> প্রক্সি ২ -> ব্যাকআপ)
+// ২. ডেটা লোডিং সিস্টেম (স্ট্রং ভ্যালিডেশন সহ)
 // =================================================================
 async function initApp() {
     const badge = document.getElementById('connectionBadge');
     const loaderOverlay = document.getElementById('loaderOverlay');
     const loaderText = document.getElementById('loaderText');
 
-    let csvText = "";
+    let finalData = [];
     let source = "OFFLINE";
     const timestamp = Date.now();
 
-    // চেষ্টা ১: AllOrigins প্রক্সি (JSON রিটার্ন করে, সবচেয়ে নির্ভরযোগ্য)
+    // চেষ্টা ১: লাইভ ডেটা আনা (প্রক্সি ব্যবহার করে)
     try {
         loaderText.innerText = "লাইভ ডেটা লোড হচ্ছে...";
-        const proxy1 = `https://api.allorigins.win/get?url=${encodeURIComponent(SHEET_URL + "&t=" + timestamp)}`;
-        const response1 = await fetch(proxy1);
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(SHEET_URL + "&t=" + timestamp)}`;
         
-        if (response1.ok) {
-            const data = await response1.json();
-            if (data.contents && data.contents.length > 50) {
-                csvText = data.contents;
-                source = "LIVE";
-            } else {
-                throw new Error("Invalid AllOrigins data");
-            }
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error("Network Error");
+        
+        const json = await response.json();
+        const csvText = json.contents;
+
+        // চেক: ডেটা কি আসলেই এসেছে? নাকি ফাঁকা?
+        if (!csvText || csvText.length < 50) {
+            throw new Error("Invalid or Empty Data from Proxy");
+        }
+
+        // পার্স করা
+        const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+
+        // চেক: পার্স করার পর কি কোনো রো (Row) পাওয়া গেছে? এবং সেখানে 'From' কলাম আছে তো?
+        if (parsed.data && parsed.data.length > 0 && (parsed.data[0].From || parsed.data[0].from)) {
+            finalData = parsed.data;
+            source = "LIVE";
+            console.log("Success: Loaded Live Data");
         } else {
-            throw new Error("AllOrigins failed");
+            throw new Error("Parsed data is invalid (No rows/columns found)");
         }
-    } catch (err1) {
-        console.warn("Proxy 1 failed, trying Proxy 2...");
+
+    } catch (err) {
+        console.warn("Live fetch failed (" + err.message + "), switching to Backup.");
         
-        // চেষ্টা ২: CorsProxy.io (সরাসরি টেক্সট রিটার্ন করে)
-        try {
-            loaderText.innerText = "বিকল্প সার্ভার চেষ্টা করা হচ্ছে...";
-            const proxy2 = `https://corsproxy.io/?${encodeURIComponent(SHEET_URL + "&t=" + timestamp)}`;
-            const response2 = await fetch(proxy2);
-            
-            if (response2.ok) {
-                csvText = await response2.text();
-                source = "LIVE (ALT)";
-            } else {
-                throw new Error("CorsProxy failed");
-            }
-        } catch (err2) {
-            console.error("All live methods failed, using backup.");
-            // চেষ্টা ৩: অফলাইন ব্যাকআপ
-            csvText = BACKUP_DATA;
-            source = "OFFLINE";
-        }
+        // চেষ্টা ২: ব্যাকআপ ডেটা লোড করা
+        const backupParsed = Papa.parse(BACKUP_DATA, { header: true, skipEmptyLines: true });
+        finalData = backupParsed.data;
+        source = "OFFLINE";
     }
 
-    // ডেটা প্রসেসিং
-    Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            if (results.data && results.data.length > 0) {
-                processAndReady(results.data, source);
-            } else {
-                // ফেচ করা ডেটা যদি খালি থাকে, জোর করে ব্যাকআপ ব্যবহার করো
-                const backupParse = Papa.parse(BACKUP_DATA, { header: true, skipEmptyLines: true });
-                processAndReady(backupParse.data, "OFFLINE");
-            }
-        }
-    });
+    // ফাইনালি ডেটা প্রসেস এবং শো করা
+    processAndReady(finalData, source);
 
     function processAndReady(data, src) {
         routesData = processData(data);
         populateDropdowns();
         
+        // লোডার বন্ধ
         loaderOverlay.classList.add('hidden');
         
+        // ব্যাজ আপডেট
         badge.classList.remove('hidden');
-        if (src.includes("LIVE")) {
+        if (src === "LIVE") {
             badge.innerText = "● লাইভ";
             badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200 animate-pulse";
         } else {
@@ -129,13 +118,15 @@ async function initApp() {
 }
 
 // =================================================================
-// ডেটা প্রসেসিং
+// ৩. ডেটা প্রসেসিং
 // =================================================================
 function processData(rawData) {
     const routes = {};
     rawData.forEach(row => {
         const from = row.From || row.from;
         const to = row.To || row.to;
+        
+        // ভ্যালিডেশন: যদি From বা To না থাকে, এই রো বাদ দাও
         if (!from || !to) return;
 
         const key = `${from.trim()}-${to.trim()}`;
@@ -169,33 +160,41 @@ function processData(rawData) {
 }
 
 // =================================================================
-// UI হ্যান্ডলিং
+// ৪. UI হ্যান্ডলিং
 // =================================================================
 function populateDropdowns() {
     const fromSelect = document.getElementById('fromSelect');
     const toSelect = document.getElementById('toSelect');
 
+    // ড্রপডাউন রিসেট
+    fromSelect.innerHTML = '<option value="">লোকেশন বাছাই করুন</option>';
+    toSelect.innerHTML = '<option value="">পরীক্ষার কেন্দ্র বাছাই করুন</option>';
+    
+    // ইনপুট এনাবল করা
     fromSelect.disabled = false;
     toSelect.disabled = false;
 
-    fromSelect.innerHTML = '<option value="">লোকেশন বাছাই করুন</option>';
-    toSelect.innerHTML = '<option value="">পরীক্ষার কেন্দ্র বাছাই করুন</option>';
-
+    // ইউনিক লিস্ট তৈরি
     const uniqueFrom = [...new Set(routesData.map(r => r.from))].sort();
     const uniqueTo = [...new Set(routesData.map(r => r.to))].sort();
 
+    // অপশন যোগ করা
     uniqueFrom.forEach(loc => {
-        const opt = document.createElement('option');
-        opt.value = loc;
-        opt.textContent = loc;
-        fromSelect.appendChild(opt);
+        if(loc){
+            const opt = document.createElement('option');
+            opt.value = loc;
+            opt.textContent = loc;
+            fromSelect.appendChild(opt);
+        }
     });
 
     uniqueTo.forEach(loc => {
-        const opt = document.createElement('option');
-        opt.value = loc;
-        opt.textContent = loc;
-        toSelect.appendChild(opt);
+        if(loc){
+            const opt = document.createElement('option');
+            opt.value = loc;
+            opt.textContent = loc;
+            toSelect.appendChild(opt);
+        }
     });
 }
 
@@ -280,4 +279,5 @@ function searchRoute() {
 
     container.innerHTML = html;
 }
+
 
