@@ -5,24 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Exam Route Finder</title>
     
-    <!-- নিরাপত্তা পলিসি (CSP) যাতে ব্রাউজার ডেটা ব্লক না করে -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://fonts.googleapis.com https://fonts.gstatic.com https://docs.google.com https://spreadsheets.google.com https://api.allorigins.win https://corsproxy.io https://ka-f.fontawesome.com https://cors-anywhere.herokuapp.com https://thingproxy.freeboard.io data:;">
-
     <!-- ফন্ট ও ডিজাইন -->
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- টেইলউইন্ড সিএসএস (ডিজাইনের জন্য) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- PapaParse (CSV রিডার) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
-    <style>
-        body { font-family: 'Hind Siliguri', sans-serif; }
-        .slide-up { animation: slideUp 0.5s ease-out; }
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    </style>
+    <!-- আমাদের কাস্টম সিএসএস -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
 
@@ -33,33 +27,24 @@
                 <i class="fa-solid fa-location-arrow text-xl"></i>
                 <h1 class="font-bold text-lg tracking-tight">ExamCommute</h1>
             </div>
-            <!-- কানেকশন ব্যাজ -->
-            <div id="connectionBadge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full border"></div>
+            <div class="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">
+                ● অফলাইন মোড
+            </div>
         </div>
     </header>
 
     <main class="max-w-md mx-auto p-4 pb-20 space-y-6 flex-grow w-full">
         
         <!-- সার্চ বক্স -->
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
-            
-            <!-- লোডার ওভারলে -->
-            <div id="loaderOverlay" class="absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center">
-                <i class="fa-solid fa-circle-notch fa-spin text-emerald-600 text-3xl mb-2"></i>
-                <p class="text-xs text-slate-500 font-semibold animate-pulse" id="loaderText">ডেটা লোড হচ্ছে...</p>
-                <button id="retryButton" onclick="retryLoadData()" class="mt-4 px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm hidden">
-                    <i class="fas fa-redo mr-2"></i>রিট্রাই করুন
-                </button>
-            </div>
-
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
             <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">রুট অনুসন্ধান</h2>
             
             <div class="space-y-5">
                 <div class="relative group">
                     <label class="text-xs font-bold text-slate-500 ml-1 mb-1.5 block">কোথা থেকে?</label>
                     <div class="absolute left-3 top-9 text-emerald-500 z-10 pointer-events-none"><i class="fa-solid fa-map-pin"></i></div>
-                    <select id="fromSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100">
-                        <option value="">অপেক্ষা করুন...</option>
+                    <select id="fromSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100 cursor-pointer">
+                        <option value="">লোকেশন বাছাই করুন</option>
                     </select>
                     <div class="absolute right-4 top-10 pointer-events-none text-slate-400"><i class="fa-solid fa-chevron-down text-xs"></i></div>
                 </div>
@@ -67,8 +52,8 @@
                 <div class="relative group">
                     <label class="text-xs font-bold text-slate-500 ml-1 mb-1.5 block">কোথায় যাবেন?</label>
                     <div class="absolute left-3 top-9 text-red-500 z-10 pointer-events-none"><i class="fa-solid fa-school"></i></div>
-                    <select id="toSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100">
-                        <option value="">অপেক্ষা করুন...</option>
+                    <select id="toSelect" class="w-full pl-10 pr-4 py-3.5 bg-slate-50 border-transparent rounded-xl focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all font-medium text-slate-700 appearance-none outline-none hover:bg-slate-100 cursor-pointer">
+                        <option value="">পরীক্ষার কেন্দ্র বাছাই করুন</option>
                     </select>
                     <div class="absolute right-4 top-10 pointer-events-none text-slate-400"><i class="fa-solid fa-chevron-down text-xs"></i></div>
                 </div>
@@ -79,6 +64,7 @@
             </div>
         </div>
 
+        <!-- ফলাফল দেখানোর জায়গা -->
         <div id="resultContainer" class="hidden"></div>
     </main>
 
@@ -86,317 +72,9 @@
         <p>&copy; ২০২৫ স্টুডেন্ট হেল্পলাইন</p>
     </footer>
 
-    <script>
-        // =================================================================
-        // কনফিগারেশন - FIXED URLs
-        // =================================================================
-        // Solution 1: Direct Google Sheets CSV URL (PUBLISHED CORRECTLY)
-        const SHEET_ID = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUzMNl_VaFOyRmeSuR2_tz7IbyodLC1hahyEI2q2-gn5xbgUixgPmOCdNpcdyOnglVGzygslu3g_yo/pub?gid=0&single=true&output=csv";
-        
-        // Alternative URL formats if above doesn't work:
-        // const SHEET_ID = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUzMNl_VaFOyRmeSuR2_tz7IbyodLC1hahyEI2q2-gn5xbgUixgPmOCdNpcdyOnglVGzygslu3g_yo/pub?output=csv";
-        // const SHEET_ID = "https://docs.google.com/spreadsheets/d/1YOUR_SHEET_ID_HERE/gviz/tq?tqx=out:csv&sheet=Sheet1";
-        
-        // CORS Proxy alternatives
-        const PROXY_SERVICES = [
-            "https://api.allorigins.win/raw?url=",
-            "https://corsproxy.io/?",
-            "https://thingproxy.freeboard.io/fetch/",
-            "" // Try direct as last option
-        ];
-
-        // ব্যাকআপ ডেটা (ইন্টারনেট না থাকলেও এটি কাজ করবে)
-        const BACKUP_DATA = `From,To,Summary,Time,MethodTitle,MethodIcon,StepLabel,StepText,Tips
-মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,বাসে উঠুন,"মিরপুর ১০, ১১ বা কালশী থেকে 'অছিম পরিবহন' বা 'আলিফ পরিবহন'-এ উঠুন।",যাওয়ার আগে নিশ্চিত হয়ে নিন আপনি স্কুল ভবন (শান্তিবাগ) নাকি কলেজ ভবনে (মাতুয়াইল) যাবেন।|ডেমরা রোডে মাঝে মাঝে জ্যাম থাকে।
-মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,নামার স্থান,ডেমরা স্টাফ কোয়ার্টার।,-
-উত্তরা,নটর ডেম কলেজ (মতিঝিল),মেট্রোরেল ব্যবহার করা সবচেয়ে সুবিধাজনক।,১ ঘণ্টা ১০ মিনিট,মেট্রোরেল রুট,train,স্টেশন,উত্তরা নর্থ বা সাউথ স্টেশন থেকে মতিঝিলগামী ট্রেনে উঠুন।,সকাল ৮টা-৯টার দিকে মেট্রোতে ভিড় থাকে।`;
-
-        let routesData = [];
-        let currentProxyIndex = 0;
-
-        document.addEventListener('DOMContentLoaded', () => {
-            initApp();
-            setupEventListeners();
-        });
-
-        async function initApp() {
-            const badge = document.getElementById('connectionBadge');
-            const loaderOverlay = document.getElementById('loaderOverlay');
-            const loaderText = document.getElementById('loaderText');
-            const retryButton = document.getElementById('retryButton');
-
-            let csvText = "";
-            let source = "OFFLINE";
-            let success = false;
-            
-            // ক্যাশ বাস্ট করার জন্য র‍্যান্ডম নম্বর
-            const cacheBuster = `&t=${Date.now()}`;
-
-            // Try each proxy service in order
-            for (let i = 0; i < PROXY_SERVICES.length; i++) {
-                try {
-                    loaderText.innerText = `ডেটা লোড হচ্ছে... (পদ্ধতি ${i+1}/${PROXY_SERVICES.length})`;
-                    
-                    let fetchUrl = SHEET_ID + cacheBuster;
-                    if (PROXY_SERVICES[i]) {
-                        fetchUrl = PROXY_SERVICES[i] + encodeURIComponent(SHEET_ID + cacheBuster);
-                    }
-                    
-                    console.log("Trying URL:", fetchUrl);
-                    
-                    const response = await fetch(fetchUrl, {
-                        method: 'GET',
-                        mode: 'cors',
-                        headers: {
-                            'Accept': 'text/csv, application/csv',
-                            'Cache-Control': 'no-cache'
-                        }
-                    });
-                    
-                    if (response.ok) {
-                        csvText = await response.text();
-                        console.log("CSV fetched successfully. First 200 chars:", csvText.substring(0, 200));
-                        
-                        // Verify it's actually CSV
-                        if (csvText.includes(',') || csvText.includes('\n')) {
-                            source = "LIVE";
-                            success = true;
-                            currentProxyIndex = i;
-                            break;
-                        } else {
-                            throw new Error("Not valid CSV format");
-                        }
-                    } else {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                } catch (err) {
-                    console.warn(`Attempt ${i+1} failed:`, err.message);
-                    continue;
-                }
-            }
-
-            // If all proxies fail, use backup
-            if (!success) {
-                console.warn("All proxy attempts failed, using backup data.");
-                csvText = BACKUP_DATA;
-                source = "OFFLINE";
-                retryButton.classList.remove('hidden');
-            } else {
-                retryButton.classList.add('hidden');
-            }
-
-            // Process the CSV data
-            try {
-                Papa.parse(csvText, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: function(results) {
-                        if (results.data && results.data.length > 0) {
-                            processAndReady(results.data, source);
-                        } else {
-                            console.warn("Parsed data empty, using backup");
-                            const backupParse = Papa.parse(BACKUP_DATA, { 
-                                header: true, 
-                                skipEmptyLines: true 
-                            });
-                            processAndReady(backupParse.data, "OFFLINE");
-                            retryButton.classList.remove('hidden');
-                        }
-                    },
-                    error: function(err) {
-                        console.error("Parse error:", err);
-                        const backupParse = Papa.parse(BACKUP_DATA, { 
-                            header: true, 
-                            skipEmptyLines: true 
-                        });
-                        processAndReady(backupParse.data, "OFFLINE");
-                        retryButton.classList.remove('hidden');
-                    }
-                });
-            } catch (parseErr) {
-                console.error("Parse exception:", parseErr);
-                const backupParse = Papa.parse(BACKUP_DATA, { 
-                    header: true, 
-                    skipEmptyLines: true 
-                });
-                processAndReady(backupParse.data, "OFFLINE");
-                retryButton.classList.remove('hidden');
-            }
-
-            function processAndReady(data, src) {
-                console.log("Processing data, count:", data.length);
-                routesData = processData(data);
-                populateDropdowns();
-                
-                loaderOverlay.classList.add('hidden');
-                
-                badge.classList.remove('hidden');
-                if (src === "LIVE") {
-                    badge.innerText = "● লাইভ";
-                    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200";
-                } else {
-                    badge.innerText = "● অফলাইন";
-                    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200";
-                }
-            }
-        }
-
-        function retryLoadData() {
-            const loaderOverlay = document.getElementById('loaderOverlay');
-            const retryButton = document.getElementById('retryButton');
-            
-            loaderOverlay.classList.remove('hidden');
-            retryButton.classList.add('hidden');
-            
-            // Rotate to next proxy
-            currentProxyIndex = (currentProxyIndex + 1) % PROXY_SERVICES.length;
-            
-            initApp();
-        }
-
-        function processData(rawData) {
-            const routes = {};
-            rawData.forEach(row => {
-                const from = row.From || row.from;
-                const to = row.To || row.to;
-                if(!from || !to) return;
-
-                const key = `${from.trim()}-${to.trim()}`;
-                
-                if (!routes[key]) {
-                    routes[key] = {
-                        from: from.trim(),
-                        to: to.trim(),
-                        summary: row.Summary || row.summary || "",
-                        time: row.Time || row.time || "",
-                        methods: {},
-                        tips: (row.Tips || row.tips || "").split('|').filter(t => t && t.trim() !== "" && t !== "-")
-                    };
-                }
-                
-                const methodTitle = row.MethodTitle || row.methodtitle || "অন্যান্য";
-                if (!routes[key].methods[methodTitle]) {
-                    routes[key].methods[methodTitle] = {
-                        title: methodTitle,
-                        icon: (row.MethodIcon || row.methodicon || "bus").toLowerCase(),
-                        steps: []
-                    };
-                }
-                
-                routes[key].methods[methodTitle].steps.push({
-                    label: row.StepLabel || row.steplabel || "ধাপ",
-                    text: row.StepText || row.steptext || ""
-                });
-            });
-            return Object.values(routes).map(r => ({ ...r, methods: Object.values(r.methods) }));
-        }
-
-        function populateDropdowns() {
-            const fromSelect = document.getElementById('fromSelect');
-            const toSelect = document.getElementById('toSelect');
-            
-            fromSelect.innerHTML = '<option value="">লোকেশন বাছাই করুন</option>';
-            toSelect.innerHTML = '<option value="">পরীক্ষার কেন্দ্র বাছাই করুন</option>';
-
-            const uniqueFrom = [...new Set(routesData.map(r => r.from))].sort();
-            const uniqueTo = [...new Set(routesData.map(r => r.to))].sort();
-
-            uniqueFrom.forEach(loc => {
-                const opt = document.createElement('option');
-                opt.value = loc;
-                opt.textContent = loc;
-                fromSelect.appendChild(opt);
-            });
-
-            uniqueTo.forEach(loc => {
-                const opt = document.createElement('option');
-                opt.value = loc;
-                opt.textContent = loc;
-                toSelect.appendChild(opt);
-            });
-        }
-
-        function setupEventListeners() {
-            const fromSelect = document.getElementById('fromSelect');
-            const toSelect = document.getElementById('toSelect');
-            const btn = document.getElementById('searchBtn');
-
-            function updateBtn() {
-                if (fromSelect.value && toSelect.value) {
-                    btn.disabled = false;
-                    btn.className = "w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 transition-all active:scale-95 bg-emerald-600 hover:bg-emerald-700 shadow-lg cursor-pointer";
-                } else {
-                    btn.disabled = true;
-                    btn.className = "w-full py-4 rounded-xl font-bold text-white flex justify-center items-center gap-2 transition-all active:scale-95 bg-slate-200 text-slate-400 cursor-not-allowed";
-                }
-            }
-            fromSelect.addEventListener('change', updateBtn);
-            toSelect.addEventListener('change', updateBtn);
-        }
-
-        function searchRoute() {
-            const fromVal = document.getElementById('fromSelect').value;
-            const toVal = document.getElementById('toSelect').value;
-            const container = document.getElementById('resultContainer');
-            
-            const result = routesData.find(r => r.from === fromVal && r.to === toVal);
-            container.innerHTML = '';
-            container.classList.remove('hidden');
-
-            if (!result) {
-                container.innerHTML = `<div class="bg-red-50 p-6 rounded-xl text-center text-red-600 font-bold border border-red-200 fade-in">দুঃখিত, কোনো তথ্য পাওয়া যায়নি!</div>`;
-                return;
-            }
-
-            const getIcon = (t) => t.includes('train') ? '<i class="fa-solid fa-train"></i>' : (t.includes('car') ? '<i class="fa-solid fa-car"></i>' : '<i class="fa-solid fa-bus"></i>');
-
-            let html = `
-                <div class="slide-up space-y-6">
-                    <div class="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white p-6 rounded-2xl shadow-xl relative overflow-hidden">
-                        <div class="relative z-10">
-                            <h3 class="text-xs font-bold uppercase mb-2 opacity-80">সারসংক্ষেপ</h3>
-                            <p class="font-medium text-lg mb-4 leading-snug">${result.summary}</p>
-                            <div class="inline-flex items-center gap-2 bg-black/20 px-3 py-1 rounded-lg text-sm border border-white/10">
-                                <i class="fa-regular fa-clock text-emerald-200"></i> ${result.time}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="space-y-4">
-                        <div class="flex justify-between px-1"><h4 class="font-bold text-slate-700">যাতায়াতের উপায়</h4><span class="text-xs bg-slate-200 px-2 py-1 rounded font-bold text-slate-600">${result.methods.length}টি অপশন</span></div>
-            `;
-
-            result.methods.forEach(method => {
-                html += `
-                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 group hover:border-emerald-200 transition-colors">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100 text-lg group-hover:bg-emerald-100 transition-colors">${getIcon(method.icon)}</div>
-                            <h5 class="font-bold text-slate-800 text-lg">${method.title}</h5>
-                        </div>
-                        <div class="space-y-4 pl-6 border-l-2 border-slate-100 ml-2 relative">
-                `;
-                method.steps.forEach(step => {
-                    html += `
-                        <div class="relative pl-6">
-                            <div class="absolute -left-[11px] top-1.5 w-3.5 h-3.5 rounded-full bg-white border-[3px] border-emerald-400 z-10"></div>
-                            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">${step.label}</p>
-                            <p class="text-sm text-slate-700 leading-relaxed">${step.text}</p>
-                        </div>
-                    `;
-                });
-                html += `</div></div>`;
-            });
-
-            if(result.tips.length > 0) {
-                html += `<div class="bg-amber-50 p-6 rounded-2xl border border-amber-100 relative"><h5 class="font-bold text-amber-800 mb-3 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation"></i> পরামর্শ</h5><ul class="space-y-2 text-sm text-slate-700">`;
-                result.tips.forEach(t => html += `<li class="flex gap-3"><div class="mt-1.5 w-1.5 h-1.5 bg-amber-500 rounded-full shrink-0"></div><span class="leading-relaxed">${t}</span></li>`);
-                html += `</ul></div>`;
-            }
-
-            html += `<button onclick="location.reload()" class="w-full py-4 bg-white border-2 border-slate-100 rounded-xl font-bold text-slate-500 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-sm">নতুন রুট খুঁজুন</button></div>`;
-            
-            container.innerHTML = html;
-        }
-    </script>
+    <!-- আমাদের কাস্টম জাভাস্ক্রিপ্ট -->
+    <script src="app.js"></script>
 </body>
 </html>
+
+
