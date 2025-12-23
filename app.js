@@ -1,7 +1,10 @@
 // =================================================================
-// ১. ডেটাবেস (OFFLINE DATA)
+// ১. কনফিগারেশন এবং ব্যাকআপ ডেটা
 // =================================================================
-const CSV_DATA = `From,To,Summary,Time,MethodTitle,MethodIcon,StepLabel,StepText,Tips
+const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUzMNl_VaFOyRmeSuR2_tz7IbyodLC1hahyEI2q2-gn5xbgUixgPmOCdNpcdyOnglVGzygslu3g_yo/pub?output=csv";
+
+// ব্যাকআপ ডেটা (ইন্টারনেট না থাকলেও এটি কাজ করবে)
+const BACKUP_DATA = `From,To,Summary,Time,MethodTitle,MethodIcon,StepLabel,StepText,Tips
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,বাসে উঠুন,"মিরপুর ১০, ১১ বা কালশী থেকে 'অছিম পরিবহন' বা 'আলিফ পরিবহন'-এ উঠুন।",যাওয়ার আগে নিশ্চিত হয়ে নিন আপনি স্কুল ভবন (শান্তিবাগ) নাকি কলেজ ভবনে (মাতুয়াইল) যাবেন।|ডেমরা রোডে মাঝে মাঝে জ্যাম থাকে।
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,নামার স্থান,ডেমরা স্টাফ কোয়ার্টার।,-
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,পরবর্তী ধাপ,সেখান থেকে রিকশা বা ইজিবাইকে করে সরাসরি স্কুলে পৌঁছানো যায়।,-
@@ -38,29 +41,88 @@ const CSV_DATA = `From,To,Summary,Time,MethodTitle,MethodIcon,StepLabel,StepText
 
 let routesData = [];
 
-// =================================================================
-// ২. অ্যাপ ইনিশিয়ালাইজেশন
-// =================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // সরাসরি ব্যাকআপ ডেটা লোড করো (কোনো ফেচিং নেই, তাই ১০০% ফাস্ট)
-    Papa.parse(CSV_DATA, {
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            if (results.data && results.data.length > 0) {
-                routesData = processData(results.data);
-                populateDropdowns();
-            } else {
-                console.error("ডেটা লোড করা যায়নি");
-            }
-        }
-    });
-
+    initApp();
     setupEventListeners();
 });
 
 // =================================================================
-// ৩. ডেটা প্রসেসিং লজিক
+// ২. ডেটা ফেচিং লজিক (CORS Fix)
+// =================================================================
+async function initApp() {
+    const badge = document.getElementById('connectionBadge');
+    const loaderOverlay = document.getElementById('loaderOverlay');
+    const loaderText = document.getElementById('loaderText');
+
+    let csvText = "";
+    let source = "OFFLINE";
+    
+    // ক্যাশ এড়ানোর জন্য টাইমস্ট্যাম্প
+    const timestamp = Date.now();
+
+    // প্রক্সি ব্যবহার করে গুগল শিট ফেচ করা (সবচেয়ে নির্ভরযোগ্য পদ্ধতি)
+    // AllOrigins JSON রিটার্ন করে, তাই এটি CORS এড়ায়।
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(SHEET_URL + "&t=" + timestamp)}`;
+
+    try {
+        loaderText.innerText = "লাইভ ডেটা লোড হচ্ছে...";
+        
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error("Network response failed");
+        
+        const data = await response.json();
+        
+        if (data.contents && data.contents.length > 50) { // ভ্যালিড ডেটা চেক
+            csvText = data.contents;
+            source = "LIVE";
+            console.log("Fetched Live Data via Proxy");
+        } else {
+            throw new Error("Empty or invalid proxy data");
+        }
+
+    } catch (err) {
+        console.warn("Live fetch failed, switching to backup.", err);
+        // লাইভ ডেটা না পেলে ব্যাকআপ ডেটা ব্যবহার করা হবে
+        csvText = BACKUP_DATA;
+        source = "OFFLINE";
+    }
+
+    // ডেটা পার্স এবং প্রসেস করা
+    Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            if (results.data && results.data.length > 0) {
+                processAndReady(results.data, source);
+            } else {
+                // খুব খারাপ অবস্থায় পড়লে ব্যাকআপ ডেটা আবার পার্স করো
+                const backupParse = Papa.parse(BACKUP_DATA, { header: true, skipEmptyLines: true });
+                processAndReady(backupParse.data, "OFFLINE");
+            }
+        }
+    });
+
+    function processAndReady(data, src) {
+        routesData = processData(data);
+        populateDropdowns();
+        
+        // লোডার সরানো
+        loaderOverlay.classList.add('hidden');
+        
+        // ব্যাজ আপডেট
+        badge.classList.remove('hidden');
+        if (src === "LIVE") {
+            badge.innerText = "● লাইভ";
+            badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200 animate-pulse";
+        } else {
+            badge.innerText = "● অফলাইন";
+            badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200";
+        }
+    }
+}
+
+// =================================================================
+// ৩. ডেটা প্রসেসিং
 // =================================================================
 function processData(rawData) {
     const routes = {};
@@ -100,21 +162,22 @@ function processData(rawData) {
 }
 
 // =================================================================
-// ৪. ইউজার ইন্টারফেস (UI) হ্যান্ডলিং
+// ৪. UI হ্যান্ডলিং
 // =================================================================
 function populateDropdowns() {
     const fromSelect = document.getElementById('fromSelect');
     const toSelect = document.getElementById('toSelect');
 
-    // ড্রপডাউন ক্লিয়ার করা
+    // ড্রপডাউন এনাবল করা
+    fromSelect.disabled = false;
+    toSelect.disabled = false;
+
     fromSelect.innerHTML = '<option value="">লোকেশন বাছাই করুন</option>';
     toSelect.innerHTML = '<option value="">পরীক্ষার কেন্দ্র বাছাই করুন</option>';
 
-    // ইউনিক ভ্যালু বের করা এবং সর্ট করা
     const uniqueFrom = [...new Set(routesData.map(r => r.from))].sort();
     const uniqueTo = [...new Set(routesData.map(r => r.to))].sort();
 
-    // অপশন যোগ করা
     uniqueFrom.forEach(loc => {
         const opt = document.createElement('option');
         opt.value = loc;
@@ -211,4 +274,3 @@ function searchRoute() {
 
     container.innerHTML = html;
 }
-
