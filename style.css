@@ -1,0 +1,42 @@
+/* ফন্ট সেটআপ */
+body {
+    font-family: 'Hind Siliguri', sans-serif;
+}
+
+/* স্লাইড আপ এনিমেশন */
+.slide-up {
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ফেড ইন এনিমেশন */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* ড্রপডাউন এরর ফিক্স */
+select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
