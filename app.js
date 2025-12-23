@@ -1,9 +1,9 @@
 // =================================================================
-// ১. কনফিগারেশন এবং ব্যাকআপ ডেটা
+// ১. কনফিগারেশন
 // =================================================================
-const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUzMNl_VaFOyRmeSuR2_tz7IbyodLC1hahyEI2q2-gn5xbgUixgPmOCdNpcdyOnglVGzygslu3g_yo/pub?output=csv";
+const LOCAL_FILE = "result.csv"; // আপনার আপলোড করা ফাইলের নাম
 
-// ব্যাকআপ ডেটা (ইন্টারনেট না থাকলে বা লাইভ ডেটায় সমস্যা থাকলে এটি লোড হবে)
+// ব্যাকআপ ডেটা (যদি result.csv লোড না হয় বা সার্ভারে না থাকে)
 const BACKUP_DATA = `From,To,Summary,Time,MethodTitle,MethodIcon,StepLabel,StepText,Tips
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,বাসে উঠুন,"মিরপুর ১০, ১১ বা কালশী থেকে 'অছিম পরিবহন' বা 'আলিফ পরিবহন'-এ উঠুন।",যাওয়ার আগে নিশ্চিত হয়ে নিন আপনি স্কুল ভবন (শান্তিবাগ) নাকি কলেজ ভবনে (মাতুয়াইল) যাবেন।|ডেমরা রোডে মাঝে মাঝে জ্যাম থাকে।
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,নামার স্থান,ডেমরা স্টাফ কোয়ার্টার।,-
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =================================================================
-// ২. ডেটা লোডিং সিস্টেম (স্ট্রং ভ্যালিডেশন সহ)
+// ২. ডেটা লোডিং সিস্টেম (Local CSV)
 // =================================================================
 async function initApp() {
     const badge = document.getElementById('connectionBadge');
@@ -56,69 +56,67 @@ async function initApp() {
 
     let finalData = [];
     let source = "OFFLINE";
+    
+    // ক্যাশ এড়ানোর জন্য টাইমস্ট্যাম্প (যাতে ফাইল আপডেট করলে সাথে সাথে দেখা যায়)
     const timestamp = Date.now();
 
-    // চেষ্টা ১: লাইভ ডেটা আনা (প্রক্সি ব্যবহার করে)
     try {
-        loaderText.innerText = "লাইভ ডেটা লোড হচ্ছে...";
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(SHEET_URL + "&t=" + timestamp)}`;
+        loaderText.innerText = "লোকাল ফাইল চেক করা হচ্ছে...";
         
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error("Network Error");
+        // ১. result.csv ফেচ করার চেষ্টা
+        const response = await fetch(`${LOCAL_FILE}?t=${timestamp}`);
         
-        const json = await response.json();
-        const csvText = json.contents;
+        if (!response.ok) throw new Error("File not found");
+        
+        const csvText = await response.text();
 
-        // চেক: ডেটা কি আসলেই এসেছে? নাকি ফাঁকা?
+        // ২. ডেটা ভ্যালিডেশন
         if (!csvText || csvText.length < 50) {
-            throw new Error("Invalid or Empty Data from Proxy");
+            throw new Error("CSV file is empty");
         }
 
-        // পার্স করা
+        // ৩. পার্স করা
         const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
 
-        // চেক: পার্স করার পর কি কোনো রো (Row) পাওয়া গেছে? এবং সেখানে 'From' কলাম আছে তো?
         if (parsed.data && parsed.data.length > 0 && (parsed.data[0].From || parsed.data[0].from)) {
             finalData = parsed.data;
-            source = "LIVE";
-            console.log("Success: Loaded Live Data");
+            source = "FILE";
+            console.log("Loaded data from result.csv");
         } else {
-            throw new Error("Parsed data is invalid (No rows/columns found)");
+            throw new Error("Invalid CSV format");
         }
 
     } catch (err) {
-        console.warn("Live fetch failed (" + err.message + "), switching to Backup.");
+        console.warn("Local file load failed (" + err.message + "), using internal Backup.");
         
-        // চেষ্টা ২: ব্যাকআপ ডেটা লোড করা
+        // ব্যর্থ হলে ব্যাকআপ ব্যবহার করো
         const backupParsed = Papa.parse(BACKUP_DATA, { header: true, skipEmptyLines: true });
         finalData = backupParsed.data;
-        source = "OFFLINE";
+        source = "BACKUP";
     }
 
-    // ফাইনালি ডেটা প্রসেস এবং শো করা
+    // প্রসেসিং
     processAndReady(finalData, source);
 
     function processAndReady(data, src) {
         routesData = processData(data);
         populateDropdowns();
         
-        // লোডার বন্ধ
         loaderOverlay.classList.add('hidden');
-        
-        // ব্যাজ আপডেট
         badge.classList.remove('hidden');
-        if (src === "LIVE") {
-            badge.innerText = "● লাইভ";
-            badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200 animate-pulse";
+        
+        if (src === "FILE") {
+            badge.innerText = "● ফাইল ডেটা";
+            badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200";
         } else {
-            badge.innerText = "● অফলাইন";
+            badge.innerText = "● ব্যাকআপ";
             badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-100 text-amber-700 border-amber-200";
         }
     }
 }
 
 // =================================================================
-// ৩. ডেটা প্রসেসিং
+// ৩. ডেটা প্রসেসিং লজিক
 // =================================================================
 function processData(rawData) {
     const routes = {};
@@ -126,7 +124,6 @@ function processData(rawData) {
         const from = row.From || row.from;
         const to = row.To || row.to;
         
-        // ভ্যালিডেশন: যদি From বা To না থাকে, এই রো বাদ দাও
         if (!from || !to) return;
 
         const key = `${from.trim()}-${to.trim()}`;
@@ -160,25 +157,21 @@ function processData(rawData) {
 }
 
 // =================================================================
-// ৪. UI হ্যান্ডলিং
+// ৪. ইউজার ইন্টারফেস (UI)
 // =================================================================
 function populateDropdowns() {
     const fromSelect = document.getElementById('fromSelect');
     const toSelect = document.getElementById('toSelect');
 
-    // ড্রপডাউন রিসেট
     fromSelect.innerHTML = '<option value="">লোকেশন বাছাই করুন</option>';
     toSelect.innerHTML = '<option value="">পরীক্ষার কেন্দ্র বাছাই করুন</option>';
     
-    // ইনপুট এনাবল করা
     fromSelect.disabled = false;
     toSelect.disabled = false;
 
-    // ইউনিক লিস্ট তৈরি
     const uniqueFrom = [...new Set(routesData.map(r => r.from))].sort();
     const uniqueTo = [...new Set(routesData.map(r => r.to))].sort();
 
-    // অপশন যোগ করা
     uniqueFrom.forEach(loc => {
         if(loc){
             const opt = document.createElement('option');
