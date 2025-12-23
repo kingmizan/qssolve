@@ -1,9 +1,7 @@
-// =================================================================
-// ১. কনফিগারেশন এবং ব্যাকআপ ডেটা
-// =================================================================
+// আপনার গুগল শিট লিংক
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUzMNl_VaFOyRmeSuR2_tz7IbyodLC1hahyEI2q2-gn5xbgUixgPmOCdNpcdyOnglVGzygslu3g_yo/pub?output=csv";
 
-// ব্যাকআপ ডেটা (ইন্টারনেট না থাকলেও এটি কাজ করবে)
+// ব্যাকআপ ডেটা
 const BACKUP_DATA = `From,To,Summary,Time,MethodTitle,MethodIcon,StepLabel,StepText,Tips
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,বাসে উঠুন,"মিরপুর ১০, ১১ বা কালশী থেকে 'অছিম পরিবহন' বা 'আলিফ পরিবহন'-এ উঠুন।",যাওয়ার আগে নিশ্চিত হয়ে নিন আপনি স্কুল ভবন (শান্তিবাগ) নাকি কলেজ ভবনে (মাতুয়াইল) যাবেন।|ডেমরা রোডে মাঝে মাঝে জ্যাম থাকে।
 মিরপুর,সামসুল হক খান স্কুল অ্যান্ড কলেজ (ডেমরা),সরাসরি বাস খুব কম তবে ৩টি সহজ উপায় আছে।,১ ঘণ্টা ৫০ মিনিট,১. কালশী বা মিরপুর ১০/১১ হয়ে,bus,নামার স্থান,ডেমরা স্টাফ কোয়ার্টার।,-
@@ -47,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // =================================================================
-// ২. ডেটা ফেচিং লজিক (CORS Fix)
+// শক্তিশালী ডেটা ফেচার (প্রক্সি ১ -> প্রক্সি ২ -> ব্যাকআপ)
 // =================================================================
 async function initApp() {
     const badge = document.getElementById('connectionBadge');
@@ -56,38 +54,49 @@ async function initApp() {
 
     let csvText = "";
     let source = "OFFLINE";
-    
-    // ক্যাশ এড়ানোর জন্য টাইমস্ট্যাম্প
     const timestamp = Date.now();
 
-    // প্রক্সি ব্যবহার করে গুগল শিট ফেচ করা (সবচেয়ে নির্ভরযোগ্য পদ্ধতি)
-    // AllOrigins JSON রিটার্ন করে, তাই এটি CORS এড়ায়।
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(SHEET_URL + "&t=" + timestamp)}`;
-
+    // চেষ্টা ১: AllOrigins প্রক্সি (JSON রিটার্ন করে, সবচেয়ে নির্ভরযোগ্য)
     try {
         loaderText.innerText = "লাইভ ডেটা লোড হচ্ছে...";
+        const proxy1 = `https://api.allorigins.win/get?url=${encodeURIComponent(SHEET_URL + "&t=" + timestamp)}`;
+        const response1 = await fetch(proxy1);
         
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error("Network response failed");
-        
-        const data = await response.json();
-        
-        if (data.contents && data.contents.length > 50) { // ভ্যালিড ডেটা চেক
-            csvText = data.contents;
-            source = "LIVE";
-            console.log("Fetched Live Data via Proxy");
+        if (response1.ok) {
+            const data = await response1.json();
+            if (data.contents && data.contents.length > 50) {
+                csvText = data.contents;
+                source = "LIVE";
+            } else {
+                throw new Error("Invalid AllOrigins data");
+            }
         } else {
-            throw new Error("Empty or invalid proxy data");
+            throw new Error("AllOrigins failed");
         }
-
-    } catch (err) {
-        console.warn("Live fetch failed, switching to backup.", err);
-        // লাইভ ডেটা না পেলে ব্যাকআপ ডেটা ব্যবহার করা হবে
-        csvText = BACKUP_DATA;
-        source = "OFFLINE";
+    } catch (err1) {
+        console.warn("Proxy 1 failed, trying Proxy 2...");
+        
+        // চেষ্টা ২: CorsProxy.io (সরাসরি টেক্সট রিটার্ন করে)
+        try {
+            loaderText.innerText = "বিকল্প সার্ভার চেষ্টা করা হচ্ছে...";
+            const proxy2 = `https://corsproxy.io/?${encodeURIComponent(SHEET_URL + "&t=" + timestamp)}`;
+            const response2 = await fetch(proxy2);
+            
+            if (response2.ok) {
+                csvText = await response2.text();
+                source = "LIVE (ALT)";
+            } else {
+                throw new Error("CorsProxy failed");
+            }
+        } catch (err2) {
+            console.error("All live methods failed, using backup.");
+            // চেষ্টা ৩: অফলাইন ব্যাকআপ
+            csvText = BACKUP_DATA;
+            source = "OFFLINE";
+        }
     }
 
-    // ডেটা পার্স এবং প্রসেস করা
+    // ডেটা প্রসেসিং
     Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
@@ -95,7 +104,7 @@ async function initApp() {
             if (results.data && results.data.length > 0) {
                 processAndReady(results.data, source);
             } else {
-                // খুব খারাপ অবস্থায় পড়লে ব্যাকআপ ডেটা আবার পার্স করো
+                // ফেচ করা ডেটা যদি খালি থাকে, জোর করে ব্যাকআপ ব্যবহার করো
                 const backupParse = Papa.parse(BACKUP_DATA, { header: true, skipEmptyLines: true });
                 processAndReady(backupParse.data, "OFFLINE");
             }
@@ -106,12 +115,10 @@ async function initApp() {
         routesData = processData(data);
         populateDropdowns();
         
-        // লোডার সরানো
         loaderOverlay.classList.add('hidden');
         
-        // ব্যাজ আপডেট
         badge.classList.remove('hidden');
-        if (src === "LIVE") {
+        if (src.includes("LIVE")) {
             badge.innerText = "● লাইভ";
             badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200 animate-pulse";
         } else {
@@ -122,7 +129,7 @@ async function initApp() {
 }
 
 // =================================================================
-// ৩. ডেটা প্রসেসিং
+// ডেটা প্রসেসিং
 // =================================================================
 function processData(rawData) {
     const routes = {};
@@ -162,13 +169,12 @@ function processData(rawData) {
 }
 
 // =================================================================
-// ৪. UI হ্যান্ডলিং
+// UI হ্যান্ডলিং
 // =================================================================
 function populateDropdowns() {
     const fromSelect = document.getElementById('fromSelect');
     const toSelect = document.getElementById('toSelect');
 
-    // ড্রপডাউন এনাবল করা
     fromSelect.disabled = false;
     toSelect.disabled = false;
 
@@ -274,3 +280,4 @@ function searchRoute() {
 
     container.innerHTML = html;
 }
+
